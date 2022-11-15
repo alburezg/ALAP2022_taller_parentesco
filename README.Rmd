@@ -1,0 +1,409 @@
+---
+title: "Demografía del parentesco: introducción a temas y método"
+author: "Facilitador: Diego Alburez-Gutierrez (MPIDR);" 
+date: "Pre-evento del X Congreso ALAP; Valparaíso, Chile - 6 Dic 2022"
+output:
+  github_document:
+    pandoc_args: --webtex
+    toc: true
+    toc_depth: 1
+bibliography: kinship.bib
+---
+
+<img src="DemoKin-Logo.png" align="right" width="200" />
+
+
+
+# 1. Instalación
+
+Instale el paquete `DemoKin` [desde GitHub](https://github.com/IvanWilli/DemoKin) (puede tomar ~1 minuto). Hicimos algunos cambios al paquete `DemoKin` antes de este taller. Si había instalado el paquete con anterioridad, desinstalelo y vuelva a instalarlo.
+
+```{r, eval=FALSE}
+# remove.packages("DemoKin")
+# install.packages("devtools")
+devtools::install_github("IvanWilli/DemoKin", build_vignettes = TRUE)
+```
+
+Cargue algunos paquetes: 
+
+```{r, warning=F, message=FALSE}
+library(DemoKin)
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(fields)
+```
+
+# 2. Bases de datos incluidas en el paquete
+
+El paquete `DemoKin` incluye datos de Suecia como ejemplo.  
+The data comes from the [Human Mortality Database](https://www.mortality.org/) and [Human Fertility Database](https://www.humanfertility.org/). 
+These datasets were loaded using the`DemoKin::get_HMDHFD` function.
+
+### 2.1. `swe_px` matrix; survival probabilities by age (DemoKin's *U* argument)
+
+Así se ven los datos:
+
+```{r}
+data("swe_px", package="DemoKin")
+
+swe_px[1:4, 1:4]
+```
+
+Grafiquemos sobre tiempo y edad: 
+
+```{r}
+
+image.plot(
+  x = as.numeric(colnames(swe_px))
+  , y = 0:nrow(swe_px)
+  , z = t(as.matrix(swe_px))
+  , xlab = "Año"
+  , ylab = "Probabilidad de supervivencia"
+  )
+```
+
+### 2.2. `swe_asfr` matrix; age specific fertility rate (DemoKin's *f* argument)
+
+Así se ven los datos:
+
+```{r}
+data("swe_asfr", package="DemoKin")
+
+swe_asfr[15:20, 1:4]
+```
+
+Grafiquemos sobre tiempo y edad: 
+
+```{r}
+image.plot(
+  x = as.numeric(colnames(swe_asfr))
+  , y = 0:nrow(swe_asfr)
+  , z = t(as.matrix(swe_asfr))
+  , xlab = "Año"
+  , ylab = "Tasa de fecundidad (f)"
+  )
+```
+
+# 3. La función `kin()`
+
+`DemoKin` puede usarse para estimar el número de parientes de Focal y su distribución etaria acorde a un número de premisas. Esto incluye parientes vivos y muertos. 
+La función  `DemoKin::kin()` se encarga de implemetar los modelos de parentesco. 
+Este es un ejemplo, en este caso, asumiendo estabilidad demográfica:
+
+```{r}
+# First, get vectors for a given year
+swe_surv_2015 <- DemoKin::swe_px[,"2015"]
+swe_asfr_2015 <- DemoKin::swe_asfr[,"2015"]
+# Run kinship models
+swe_2015 <- kin(U = swe_surv_2015, f = swe_asfr_2015, time_invariant = TRUE)
+```
+
+## 3.1. Argumentos
+
+- **U** numérico Un vector o matriz con probabilidades de supervivencia, las edades son files y las columnas años (si es matriz).
+- **f** numérico. Igual que U pero para tasas de fecundidad
+- **time_invariant** lógico. Asumir tasas estables. Default TRUE.
+- **output_kin** caracter. tipo de pariente que estimar: "m" para madre, "d" para hija, ...
+
+## 3.2. Tipos de parientes
+
+El arugmento `output_kin` usa códigos únicos para identificar tipos de parientes.
+Note que los códigos en `DemoKin` son distintos a los usados por Caswell [-@caswell_formal_2019]. 
+Esta es la equivalencia de los códigos:
+
+```{r}
+demokin_codes()
+```
+
+## 3.4. Valor
+
+`DemoKin::kin()` produce una lista con dos data frames: `kin_full` y `kin_summary`. 
+
+```{r}
+str(swe_2015)
+```
+
+### `kin_full` 
+
+Esta data frame contiene el número esperado de parientes por tipo de pariente, año/cohorte, edad de Focal y edad del pariente. 
+
+```{r}
+head(swe_2015$kin_full)
+```
+
+### `kin_summary`
+
+Esta es una data frame que resume el contenido de `kin_full`. Para producirla, sumamos los valores a traves de todas las edades de los parientes. Esto produce una data frame con el número esperado de parientes por año/cohorte y edad de Focal (pero *no* por edad del pariente). 
+Así derivamos `kin_summary`:
+
+```{r, message=F}
+kin_by_age_focal <- 
+  swe_2015$kin_full %>% 
+  group_by(cohort, kin, age_focal) %>% 
+  summarise(count = sum(living)) %>% 
+  ungroup()
+
+# Check that they are identical (for living kin only here)
+
+kin_by_age_focal %>% 
+  select(cohort, kin, age_focal, count) %>% 
+  identical(
+    swe_2015$kin_summary %>% 
+      select(cohort, kin, age_focal, count = count_living) %>% 
+      arrange(cohort, kin, age_focal)
+  )
+
+```
+
+# 4. Ejemplo: número de parientes en poblaciones estables
+
+Seguimos a Caswell [-@caswell_formal_2019], al asumir una población femenina matrilineal cerradaen la cual todas experimentan las tasas de mortalidad y fecundidad en Argentina a lo largo de su vida.
+Preguntamos:
+
+> Cömo podemos caracterizar la estructura familiar (redes de parentesco) de un miembro promedio de esta poblacion (llamada Focal)?
+
+Para este ejercicio usaremos los datos de Argentina que hemos venido trabajando.
+
+```{r}
+# First, get vectors for a given year
+swe_surv_2015 <- DemoKin::swe_px[,"2015"]
+swe_asfr_2015 <- DemoKin::swe_asfr[,"2015"]
+# Run kinship models
+swe_2015 <- kin(U = swe_surv_2015, f = swe_asfr_2015, time_invariant = TRUE)
+```
+
+## 4.1. Diagrama de parentesco al estilo 'Keyfitz' 
+
+Usamos la función `plot_diagram` para visualizar el número implícito de parientes de Focal cuando ella tiene 35 años [@Keyfitz2005]:
+
+```{r, fig.height=10, fig.width=12}
+swe_2015$kin_summary %>% 
+  filter(age_focal == 35) %>% 
+  select(kin, count = count_living) %>% 
+  plot_diagram(rounding = 2)
+```
+
+## 4.2. Parentela viva
+
+Ahora podemos mostrar la variación en el número esperado de hijas, hermanas, primas, etc. de Focal a lo largo de su vida. Usamos la función `DemoKin::rename_kin()` para mostrar los nombres de cada tipo de pariente.
+
+```{r, fig.height=6, fig.width=8}
+swe_2015$kin_summary %>%
+  rename_kin() %>% 
+  ggplot() +
+  geom_line(aes(age_focal, count_living))  +
+  geom_vline(xintercept = 35, color=2)+
+  theme_bw() +
+  labs(x = "Edad de Focal") +
+  facet_wrap(~kin)
+```
+
+Podemos mostrar todo en una gráfica para visualizar el tamaño absoluto de las redes familiares de Focal:
+
+```{r}
+counts <- 
+  swe_2015$kin_summary %>%
+  group_by(age_focal) %>% 
+  summarise(count = sum(count_living)) %>% 
+  ungroup()
+
+swe_2015$kin_summary %>%
+  select(age_focal, kin, count_living) %>% 
+  rename_kin(., consolidate_column = "count_living") %>%
+  ggplot(aes(x = age_focal, y = count)) +
+  geom_area(aes(fill = kin), colour = "black") +
+  geom_line(data = counts, size = 2) +
+  labs(x = "Edad de Focal", y = "Número de parientes vivas") +
+  coord_cartesian(ylim = c(0, 6)) +
+  theme_bw() +
+  theme(legend.position = "bottom")
+```
+
+## 4.3. Distribución etaria de la parentela con vida
+
+Qué edad tienen los parientes de Focal? Usamos la data frame `kin_full` para mostrar la distribución etaria de los parientes de Focal a lo largo de la vida de Focal. Por ejemplo, esta es la edad de los parientes de Focal cuando ella tiene 35 años:
+
+
+```{r, fig.height=6, fig.width=8}
+swe_2015$kin_full %>%
+DemoKin::rename_kin() %>%
+filter(age_focal == 35) %>%
+ggplot() +
+geom_line(aes(age_kin, living)) +
+geom_vline(xintercept = 35, color=2) +
+labs(y = "Número de parientes vivas") +
+theme_bw() +
+facet_wrap(~kin)
+
+```
+
+## 4.4. Parientes muertos
+
+Nos hemos enfocados en parentela vivo, pero qué hay de los pariente que han muerto ya?
+La función `kin` tmabién incluye información sobre muertes de parientes experimentadas por Focal.
+
+Exploremos primero el número de muertes de parientes que Focal experimenta en cada edad de su vida. Es decir, el número de parientes cuya muerte es sufrida por Focal cuando Focal tiene 0,1,2,... años.
+
+```{r}
+loss1 <- 
+  swe_2015$kin_summary %>%
+  filter(age_focal>0) %>%
+  group_by(age_focal) %>% 
+  summarise(count = sum(count_dead)) %>% 
+  ungroup()
+
+swe_2015$kin_summary %>%
+  filter(age_focal>0) %>%
+  group_by(age_focal, kin) %>% 
+  summarise(count = sum(count_dead)) %>% 
+  ungroup() %>% 
+  rename_kin(., consolidate_column = "count") %>% 
+  ggplot(aes(x = age_focal, y = count)) +
+  geom_area(aes(fill = kin), colour = "black") +
+  geom_line(data = loss1, size = 2) +
+  labs(x = "Focal's age", y = "Number of kin deaths experienced at each age") +
+  coord_cartesian(ylim = c(0, 0.086)) +
+  theme_bw() +
+  theme(legend.position = "bottom")
+```
+
+La suma de estos valores indica el número acumulado de muertes de parientes experimentado por Focal cuando ella tiene 0,1,2,... años. 
+
+```{r}
+loss2 <- 
+  swe_2015$kin_summary %>%
+  group_by(age_focal) %>% 
+  summarise(count = sum(count_cum_dead)) %>% 
+  ungroup()
+
+
+swe_2015$kin_summary %>%
+  group_by(age_focal, kin) %>% 
+  summarise(count = sum(count_cum_dead)) %>% 
+  ungroup() %>% 
+  rename_kin(., consolidate = "count") %>% 
+  ggplot(aes(x = age_focal, y = count)) +
+  geom_area(aes(fill = kin), colour = "black") +
+  geom_line(data = loss2, size = 2) +
+  labs(x = "Focal's age", y = "Number of kin deaths experienced (cumulative)") +
+  theme_bw() +
+  theme(legend.position = "bottom")
+```
+
+Por ejemplo, cuando Focal alcanza los 15, 50 y  65 años de edad, habrá perdido un promedio de `r loss2 %>% filter(age_focal %in% c(15, 50, 65)) %>% pull(count) %>% round(1) %>% paste(., collapse = ", ")` parientes.
+
+# 5. Viñeta y extensiones
+
+Para más detalles sobre `DemoKin`, incluyendo una extensión a poblaciones no estables, y modelos multi-state, ver `vignette("Reference", package = "DemoKin")`. Si la viñeta no carga, intente instalar el paquete asíÑ `devtools::install_github("IvanWilli/DemoKin", build_vignettes = TRUE)`.
+
+Para una descripción detallada de los modelos de parentesco, ver:
+
+- poblaciones estables [@caswell_formal_2019],
+- modelos multistate [@caswell_formal_2020],
+- poblaciones no estables [@caswell_formal_2021], and
+- modelos con dos sexos [@caswell_formal_2022].
+
+# 6. Ejercicios
+
+**Para todos los ejercicios, asuma una población estable femenina con las tasas de 2010 en Argentina.**
+
+## Ejercicio 1. Parientes vivos y muertos
+
+Use `DemoKin` (asumiendo una población estable femenina con las tasas argentina de 2010) para explorar el número de parientes vivos y muertos de Focal (un miembro promedio de la población). 
+
+**Responda**:  Cuántos hijos tiene Focal a sus 65 años?
+
+```{r}
+# Escriba su código aquí
+```
+
+**Responda**: Cuántos hijos ha perdido Focal al cumplir 65 años (en total)?
+
+```{r}
+# Escriba su código aquí
+```
+
+## Ejercicio 2. Edad promedio de los parientes
+
+La función `DemoKin::kin` provee información sobre la edad promedio de los parientes de Focal (en las columnas `kin_summary$mean_age` y `kin_summary$$sd_age`). Por ejemplo, esta es la edad promedio de las hermanas de Focal: 
+
+```{r}
+
+swe_2015$kin_summary %>%  
+  filter(kin %in% c("os", "ys")) %>% 
+  rename_kin() %>% 
+  select(kin, age_focal, mean_age, sd_age) %>% 
+  pivot_longer(mean_age:sd_age) %>% 
+  ggplot(aes(x = age_focal, y = value, colour = kin)) +
+  geom_line() +
+  facet_wrap(~name, scales = "free") +
+  labs(y = "Edad promedio de hermanas") +
+  theme_bw()
+```
+
+**Instrucciones**
+
+Estime la edad promedio y la desviación estándar de las hermanas de Focal **a mano** (es decir, a partir de los datos en la data frame `kin_full`). Grafique por separado para (1) hermanas menores y mayores y (2) para todas las hermanas juntas. 
+
+Primero, la edad promedio de hermanas menores y mayores por separado:
+
+```{r}
+# Escriba su código aquí
+```
+
+Segundo, la edad promedio de todas las hermanas sin importar su paridad:
+
+```{r}
+# Escriba su código aquí
+```
+
+## Ejercicio 3. Madres
+
+What is the probability that Focal (an average Swedish woman) has a living mother over Focal's live? 
+
+**Instrucciones**
+
+Use DemoKin para obtener $M_1(a)$, la probabilidad de que Focal tenga una madre con vida a la edad $a$ de Focal en una población estable. Si Focal sobrevive, $M_1{(a)}$ es análoga a la probabilidad de sobrevivor en una tabla de mortalidad: deber ser 1 cuando $a$ es 0 (la madre esta viva al dar a luz) y luego disminuye de forma monotónica hasta llegar a 0. 
+
+**Responda:** Cuál es la probabilidad de que la madre de Focal sobreviva hasta el cumpleaños 70 de Focal?
+
+```{r}
+# Escriba su código aquí
+```
+
+## Ejercicio 4. Generación Sandwich
+
+La 'Generación Sandwich' se refiere a personas que se encuentran 'ensanguchadas' entre padres mayores e hijos jóvenes que requiren cuidado y atención. Asumimos que esto representa una doble carga de cuidado hacia miembros de ambas generaciones. En demografía, este es un proceso intergeneracional que depende de la posición genealógica de un individuo respecto a la generación superior e inferior. 
+
+En este ejercicio, una persona estará ensanguchada si tiene al menos un hijo de edad $15$ o menor y (al mismo tiempo) un padre que morirá en los próximos $5$ años. Alburez‐Gutierrez, Mason, y Zagheni [-@alburezgutierrez_sandwich_2021] defineron la probabilidad de que Focal estuviera ensanguchada a la edad $a$ en una población estable así:
+
+$$
+S(a) = \underbrace{\left(1 - \prod_{x=1}^{15} [1 - m_{a-x})] \right)}_{\substack{\text{fecundidad en los}\\ \text{$15$ anios antes de edad 'a'}}} \times \underbrace{M_1(a)}_{\substack{\text{Prob. que madre de Focal}\\ \text{este viva cuando Focal tiene 'a' anios}}} \times  \underbrace{\left(1-  \frac{M_1(a+5)}{M_1(a)}\right)}_{\substack{\text{Prob. que madre de Focal}\\ \text{muera en proximos $5$ anios}}}    
+$$
+
+donde 
+
+- $m_{a-x}$ es la fecunidad en la edad $a-x$ y
+- $M_1(a)$ es la probabilidad de tener una madre viva a la edad $a$ en una población estable. 
+
+Este cálculo se refiere a una mujer promedio en una población femenina estable e ignora la mortalidad infantil.
+
+**Instrucciones**
+
+Use DemoKin para estimar la probabilidad de que Focal esté ensanguchada, $S(a)$, entre las edades 15 y 70. Asuma una población femenina estable.
+
+**Responda:** A qué edad es más probable que Focal esté ensanguchada?
+
+```{r}
+# Escriba su código aquí
+```
+
+# 8. Session info
+
+
+```{r}
+sessionInfo()
+```
+
+## References
