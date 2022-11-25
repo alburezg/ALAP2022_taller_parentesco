@@ -6,8 +6,7 @@ options(tibble.print_min=20)
 
 # A function to get DemoKin inputs from UNWPP using their API
 # Inspired by and based on https://github.com/schmert/UN-API
-
-get_UNWPP_inputs <- function(countries, my_startyr, my_endyr){
+get_UNWPP_inputs <- function(countries, my_startyr, my_endyr, variant = "Median"){
   
   
   print("Getting API ready...")
@@ -52,6 +51,7 @@ get_UNWPP_inputs <- function(countries, my_startyr, my_endyr){
   
   px <- 
     read.csv(target, sep='|', skip=1) %>% 
+    filter(Variant %in% variant) %>% 
     filter(Sex == "Female") %>% 
     mutate(px = 1- Value) %>% 
     select(Location, Time = TimeLabel, age = AgeStart, px)
@@ -71,6 +71,7 @@ get_UNWPP_inputs <- function(countries, my_startyr, my_endyr){
   
   asfr <- 
     read.csv(target, sep='|', skip=1) %>% 
+    filter(Variant %in% variant) %>% 
     select(Location, Time = TimeLabel, age = AgeStart, ASFR = Value)
   
   data <- 
@@ -102,7 +103,6 @@ data <- get_UNWPP_inputs(
 period_kin <- 
   data %>%
   filter(Time %in% seq(1950, 2020, 10)) %>%
-  # filter(Time %in% seq(1950, 2020, 20)) %>% 
   split(list(.$Location, .$Time)) %>%
   map_df(function(X){
     print(paste(unique(X$Location), unique(X$Time)))

@@ -4,12 +4,14 @@ Facilitador: Diego Alburez-Gutierrez (MPIDR);
 Pre-evento del X Congreso ALAP; Valparaíso, Chile - 6 Dic 2022
 
   - [1. Instalación](#1-instalación)
-  - [2. Bases de datos incluidas en el
-    paquete](#2-bases-de-datos-incluidas-en-el-paquete)
+  - [2. Descargar datos de Naciones
+    Unidas](#2-descargar-datos-de-naciones-unidas)
+  - [2. Visualizar los datos](#2-visualizar-los-datos)
   - [3. La función `kin()`](#3-la-función-kin)
   - [4. Ejemplo: número de parientes en poblaciones
     estables](#4-ejemplo-número-de-parientes-en-poblaciones-estables)
-  - [5. Viñeta y extensiones](#5-viñeta-y-extensiones)
+  - [5. Ejemplo: dinámicas regionales](#5-ejemplo-dinámicas-regionales)
+  - [6. Viñeta y extensiones](#6-viñeta-y-extensiones)
   - [6. Ejercicios](#6-ejercicios)
   - [8. Session info](#8-session-info)
 
@@ -35,79 +37,199 @@ Cargue algunos paquetes:
 library(DemoKin)
 library(dplyr)
 library(tidyr)
+library(purrr)
 library(ggplot2)
 library(fields)
 ```
 
-# 2\. Bases de datos incluidas en el paquete
+# 2\. Descargar datos de Naciones Unidas
 
-El paquete `DemoKin` incluye datos de Suecia como ejemplo.  
-The data comes from the [Human Mortality
-Database](https://www.mortality.org/) and [Human Fertility
-Database](https://www.humanfertility.org/). These datasets were loaded
-using the`DemoKin::get_HMDHFD` function.
+Vamos a usar el API del [World Population
+Prospects 2022](https://population.un.org/wpp/) para descargar los datos
+que necesitamos para DemoKin.
 
-### 2.1. `swe_px` matrix; survival probabilities by age (DemoKin’s *U* argument)
+Para esto, primero definimos una función para cargar los datos
+directamente a la sesión de R:
+
+``` r
+get_UNWPP_inputs <- function(countries, my_startyr, my_endyr, variant = "Median"){
+
+  print("Getting API ready...")
+  # Get data from UN using API
+  
+  base_url <- 'https://population.un.org/dataportalapi/api/v1'
+  
+  # First, identify which indicator codes we want to use
+  
+  target <- paste0(base_url,'/indicators/?format=csv')
+  codes <- read.csv(target, sep='|', skip=1) 
+  
+  qx_code <- codes$Id[codes$ShortName == "qx1"]
+  asfr_code <- codes$Id[codes$ShortName == "ASFR1"]
+  
+  # Get location codes
+  
+  target <- paste0(base_url, '/locations?sort=id&format=csv')
+  df_locations <- read.csv(target, sep='|', skip=1)
+  
+  # find the codes for countries
+  
+  my_location <- 
+    df_locations %>% 
+    filter( Name %in% countries) %>% 
+    pull(Id) %>% 
+    paste(collapse = ",")
+  
+  # Get px values
+  
+  print(paste0("Getting mortality data for ", paste(countries, collapse = ", ")))
+  
+  my_indicator <- qx_code
+  my_location  <- my_location
+  
+  target <- paste0(base_url,
+                   '/data/indicators/',my_indicator,
+                   '/locations/',my_location,
+                   '/start/',my_startyr,
+                   '/end/',my_endyr,
+                   '/?format=csv')
+  
+  px <- 
+    read.csv(target, sep='|', skip=1) %>% 
+    filter(Variant %in% variant) %>% 
+    filter(Sex == "Female") %>% 
+    mutate(px = 1- Value) %>% 
+    select(Location, Time = TimeLabel, age = AgeStart, px)
+  
+  # ASFR
+  
+  print(paste0("Getting fertility data for ", paste(countries, collapse = ", ")))
+  
+  my_indicator <- asfr_code
+  
+  target <- paste0(base_url,
+                   '/data/indicators/',my_indicator,
+                   '/locations/',my_location,
+                   '/start/',my_startyr,
+                   '/end/',my_endyr,
+                   '/?format=csv')
+  
+  asfr <- 
+    read.csv(target, sep='|', skip=1) %>% 
+    filter(Variant %in% variant) %>% 
+    select(Location, Time = TimeLabel, age = AgeStart, ASFR = Value) %>% 
+    mutate(ASFR = ASFR/1000)
+  
+  data <- 
+    left_join(px, asfr, by = c("Location", "Time", "age")) %>% 
+    mutate(ASFR = replace(ASFR,is.na(ASFR),0)) 
+  
+  data
+}
+```
+
+Ahora, usemos esta función para descargar los datos que necesitamos para
+correr nuestro modelos de parentesco. Para este ejemplo, queremos datos
+de países latinoamericanos:
+
+``` r
+# pick countries
+countries <- c("Guatemala")
+
+# Year range
+
+my_startyr   <- 1950
+my_endyr     <- 2020
+
+data <- get_UNWPP_inputs(
+  countries = countries
+  , my_startyr = my_startyr
+  , my_endyr = my_endyr
+  )
+```
+
+    ## [1] "Getting API ready..."
+    ## [1] "Getting mortality data for Guatemala"
+    ## [1] "Getting fertility data for Guatemala"
+
+# 2\. Visualizar los datos
+
+Tomemos los datos de Guatemala como ejemplo. Primero, los transformamos
+a matrices, que es el formato que DemoKin requiere:
+
+``` r
+gt_px <- 
+  data %>% 
+  select(Time, age, px) %>%
+  pivot_wider(names_from = Time, values_from = px) %>%
+  select(-age) %>% 
+  as.matrix()
+
+gt_asfr <- 
+  data %>% 
+  select(Time, age, ASFR) %>%
+  pivot_wider(names_from = Time, values_from = ASFR) %>%
+  select(-age) %>% 
+  as.matrix()
+```
+
+### 2.1. `px` matriz; probabilidades de supervicencia por edad (argumento *U* en DemoKin)
 
 Así se ven los datos:
 
 ``` r
-data("swe_px", package="DemoKin")
-
-swe_px[1:4, 1:4]
+gt_px[1:4, 1:4]
 ```
 
-    ##      1900    1901    1902    1903
-    ## 0 0.91060 0.90673 0.92298 0.91890
-    ## 1 0.97225 0.97293 0.97528 0.97549
-    ## 2 0.98525 0.98579 0.98630 0.98835
-    ## 3 0.98998 0.98947 0.99079 0.99125
+    ##           1950      1951      1952      1953
+    ## [1,] 0.8357549 0.8365911 0.8383111 0.8401224
+    ## [2,] 0.9579989 0.9569656 0.9574153 0.9584632
+    ## [3,] 0.9765789 0.9764353 0.9767937 0.9773143
+    ## [4,] 0.9785723 0.9792318 0.9796995 0.9799887
 
 Grafiquemos sobre tiempo y edad:
 
 ``` r
 image.plot(
-  x = as.numeric(colnames(swe_px))
-  , y = 0:nrow(swe_px)
-  , z = t(as.matrix(swe_px))
+  x = as.numeric(colnames(gt_px))
+  , y = 0:nrow(gt_px)
+  , z = t(as.matrix(gt_px))
   , xlab = "Año"
   , ylab = "Probabilidad de supervivencia"
   )
 ```
 
-![](README_files/figure-gfm/unnamed-chunk-4-1.png)<!-- -->
+![](README_files/figure-gfm/unnamed-chunk-7-1.png)<!-- -->
 
-### 2.2. `swe_asfr` matrix; age specific fertility rate (DemoKin’s *f* argument)
+### 2.2. `gt_asfr` matriz; tasas específicas de fecundidad (argumento *f* en DemoKin)
 
 Así se ven los datos:
 
 ``` r
-data("swe_asfr", package="DemoKin")
-
-swe_asfr[15:20, 1:4]
+gt_asfr[15:20, 1:4]
 ```
 
-    ##       1900    1901    1902    1903
-    ## 14 0.00013 0.00006 0.00008 0.00008
-    ## 15 0.00053 0.00054 0.00057 0.00057
-    ## 16 0.00275 0.00319 0.00322 0.00259
-    ## 17 0.00932 0.00999 0.00965 0.00893
-    ## 18 0.02328 0.02337 0.02347 0.02391
-    ## 19 0.04409 0.04357 0.04742 0.04380
+    ##          1950     1951     1952     1953
+    ## [1,] 0.000000 0.000000 0.000000 0.000000
+    ## [2,] 0.066347 0.065141 0.064820 0.064491
+    ## [3,] 0.121295 0.118319 0.117414 0.116737
+    ## [4,] 0.177313 0.175192 0.174600 0.174613
+    ## [5,] 0.228124 0.229831 0.230589 0.232388
+    ## [6,] 0.260996 0.268618 0.271522 0.275600
 
 Grafiquemos sobre tiempo y edad:
 
 ``` r
 image.plot(
-  x = as.numeric(colnames(swe_asfr))
-  , y = 0:nrow(swe_asfr)
-  , z = t(as.matrix(swe_asfr))
+  x = as.numeric(colnames(gt_asfr))
+  , y = 0:nrow(gt_asfr)
+  , z = t(as.matrix(gt_asfr))
   , xlab = "Año"
   , ylab = "Tasa de fecundidad (f)"
   )
 ```
 
-![](README_files/figure-gfm/unnamed-chunk-6-1.png)<!-- -->
+![](README_files/figure-gfm/unnamed-chunk-9-1.png)<!-- -->
 
 # 3\. La función `kin()`
 
@@ -119,10 +241,10 @@ asumiendo estabilidad demográfica:
 
 ``` r
 # First, get vectors for a given year
-swe_surv_2015 <- DemoKin::swe_px[,"2015"]
-swe_asfr_2015 <- DemoKin::swe_asfr[,"2015"]
+gt_surv_2015 <- gt_px[,"2015"]
+gt_asfr_2015 <- gt_asfr[,"2015"]
 # Run kinship models
-swe_2015 <- kin(U = swe_surv_2015, f = swe_asfr_2015, time_invariant = TRUE)
+gt_2015 <- kin(U = gt_surv_2015, f = gt_asfr_2015, time_invariant = TRUE)
 ```
 
 ## 3.1. Argumentos
@@ -167,7 +289,7 @@ demokin_codes()
 `kin_summary`.
 
 ``` r
-str(swe_2015)
+str(gt_2015)
 ```
 
     ## List of 2
@@ -184,9 +306,9 @@ str(swe_2015)
     ##   ..$ kin           : chr [1:1414] "coa" "cya" "d" "gd" ...
     ##   ..$ year          : logi [1:1414] NA NA NA NA NA NA ...
     ##   ..$ cohort        : logi [1:1414] NA NA NA NA NA NA ...
-    ##   ..$ count_living  : num [1:1414] 0.2752 0.0898 0 0 0 ...
-    ##   ..$ mean_age      : num [1:1414] 8.32 4.05 NaN NaN NaN ...
-    ##   ..$ sd_age        : num [1:1414] 6.14 3.68 NaN NaN NaN ...
+    ##   ..$ count_living  : num [1:1414] 0.635 0.22 0 0 0 ...
+    ##   ..$ mean_age      : num [1:1414] 11.47 5.75 NaN NaN NaN ...
+    ##   ..$ sd_age        : num [1:1414] 8.39 5.01 NaN NaN NaN ...
     ##   ..$ count_dead    : num [1:1414] 0 0 0 0 0 0 0 0 0 0 ...
     ##   ..$ count_cum_dead: num [1:1414] 0 0 0 0 0 0 0 0 0 0 ...
     ##   ..$ mean_age_lost : num [1:1414] NaN NaN NaN NaN NaN NaN NaN NaN NaN NaN ...
@@ -197,7 +319,7 @@ Esta data frame contiene el número esperado de parientes por tipo de
 pariente, año/cohorte, edad de Focal y edad del pariente.
 
 ``` r
-head(swe_2015$kin_full)
+head(gt_2015$kin_full)
 ```
 
     ## # A tibble: 6 x 7
@@ -220,7 +342,7 @@ pariente). Así derivamos `kin_summary`:
 
 ``` r
 kin_by_age_focal <- 
-  swe_2015$kin_full %>% 
+  gt_2015$kin_full %>% 
   group_by(cohort, kin, age_focal) %>% 
   summarise(count = sum(living)) %>% 
   ungroup()
@@ -230,7 +352,7 @@ kin_by_age_focal <-
 kin_by_age_focal %>% 
   select(cohort, kin, age_focal, count) %>% 
   identical(
-    swe_2015$kin_summary %>% 
+    gt_2015$kin_summary %>% 
       select(cohort, kin, age_focal, count = count_living) %>% 
       arrange(cohort, kin, age_focal)
   )
@@ -252,10 +374,10 @@ trabajando.
 
 ``` r
 # First, get vectors for a given year
-swe_surv_2015 <- DemoKin::swe_px[,"2015"]
-swe_asfr_2015 <- DemoKin::swe_asfr[,"2015"]
+gt_surv_2015 <- gt_px[,"2015"]
+gt_asfr_2015 <- gt_asfr[,"2015"]
 # Run kinship models
-swe_2015 <- kin(U = swe_surv_2015, f = swe_asfr_2015, time_invariant = TRUE)
+gt_2015 <- kin(U = gt_surv_2015, f = gt_asfr_2015, time_invariant = TRUE)
 ```
 
 ## 4.1. Diagrama de parentesco al estilo ‘Keyfitz’
@@ -264,13 +386,13 @@ Usamos la función `plot_diagram` para visualizar el número implícito de
 parientes de Focal cuando ella tiene 35 años (Keyfitz and Caswell 2005):
 
 ``` r
-swe_2015$kin_summary %>% 
+gt_2015$kin_summary %>% 
   filter(age_focal == 35) %>% 
   select(kin, count = count_living) %>% 
   plot_diagram(rounding = 2)
 ```
 
-![](README_files/figure-gfm/unnamed-chunk-13-1.png)<!-- -->
+![](README_files/figure-gfm/unnamed-chunk-16-1.png)<!-- -->
 
 ## 4.2. Parentela viva
 
@@ -280,7 +402,7 @@ hermanas, primas, etc. de Focal a lo largo de su vida. Usamos la función
 pariente.
 
 ``` r
-swe_2015$kin_summary %>%
+gt_2015$kin_summary %>%
   rename_kin() %>% 
   ggplot() +
   geom_line(aes(age_focal, count_living))  +
@@ -290,31 +412,31 @@ swe_2015$kin_summary %>%
   facet_wrap(~kin)
 ```
 
-![](README_files/figure-gfm/unnamed-chunk-14-1.png)<!-- -->
+![](README_files/figure-gfm/unnamed-chunk-17-1.png)<!-- -->
 
 Podemos mostrar todo en una gráfica para visualizar el tamaño absoluto
 de las redes familiares de Focal:
 
 ``` r
 counts <- 
-  swe_2015$kin_summary %>%
+  gt_2015$kin_summary %>%
   group_by(age_focal) %>% 
   summarise(count = sum(count_living)) %>% 
   ungroup()
 
-swe_2015$kin_summary %>%
+gt_2015$kin_summary %>%
   select(age_focal, kin, count_living) %>% 
   rename_kin(., consolidate_column = "count_living") %>%
   ggplot(aes(x = age_focal, y = count)) +
   geom_area(aes(fill = kin), colour = "black") +
   geom_line(data = counts, size = 2) +
   labs(x = "Edad de Focal", y = "Número de parientes vivas") +
-  coord_cartesian(ylim = c(0, 6)) +
+  coord_cartesian(ylim = c(0, 8.5)) +
   theme_bw() +
   theme(legend.position = "bottom")
 ```
 
-![](README_files/figure-gfm/unnamed-chunk-15-1.png)<!-- -->
+![](README_files/figure-gfm/unnamed-chunk-18-1.png)<!-- -->
 
 ## 4.3. Distribución etaria de la parentela con vida
 
@@ -324,18 +446,18 @@ de la vida de Focal. Por ejemplo, esta es la edad de los parientes de
 Focal cuando ella tiene 35 años:
 
 ``` r
-swe_2015$kin_full %>%
-DemoKin::rename_kin() %>%
-filter(age_focal == 35) %>%
-ggplot() +
-geom_line(aes(age_kin, living)) +
-geom_vline(xintercept = 35, color=2) +
-labs(y = "Número de parientes vivas") +
-theme_bw() +
-facet_wrap(~kin)
+gt_2015$kin_full %>%
+  DemoKin::rename_kin() %>%
+  filter(age_focal == 35) %>%
+  ggplot() +
+  geom_line(aes(age_kin, living)) +
+  geom_vline(xintercept = 35, color=2) +
+  labs(y = "Número de parientes vivas") +
+  theme_bw() +
+  facet_wrap(~kin)
 ```
 
-![](README_files/figure-gfm/unnamed-chunk-16-1.png)<!-- -->
+![](README_files/figure-gfm/unnamed-chunk-19-1.png)<!-- -->
 
 ## 4.4. Parientes muertos
 
@@ -349,13 +471,13 @@ cuya muerte es sufrida por Focal cuando Focal tiene 0,1,2,… años.
 
 ``` r
 loss1 <- 
-  swe_2015$kin_summary %>%
+  gt_2015$kin_summary %>%
   filter(age_focal>0) %>%
   group_by(age_focal) %>% 
   summarise(count = sum(count_dead)) %>% 
   ungroup()
 
-swe_2015$kin_summary %>%
+gt_2015$kin_summary %>%
   filter(age_focal>0) %>%
   group_by(age_focal, kin) %>% 
   summarise(count = sum(count_dead)) %>% 
@@ -364,8 +486,7 @@ swe_2015$kin_summary %>%
   ggplot(aes(x = age_focal, y = count)) +
   geom_area(aes(fill = kin), colour = "black") +
   geom_line(data = loss1, size = 2) +
-  labs(x = "Focal's age", y = "Number of kin deaths experienced at each age") +
-  coord_cartesian(ylim = c(0, 0.086)) +
+  labs(x = "Edad de Focal", y = "Numero de muertes en la familia experimentadas cada anio") +
   theme_bw() +
   theme(legend.position = "bottom")
 ```
@@ -373,20 +494,20 @@ swe_2015$kin_summary %>%
     ## `summarise()` has grouped output by 'age_focal'. You can override using the
     ## `.groups` argument.
 
-![](README_files/figure-gfm/unnamed-chunk-17-1.png)<!-- -->
+![](README_files/figure-gfm/unnamed-chunk-20-1.png)<!-- -->
 
 La suma de estos valores indica el número acumulado de muertes de
 parientes experimentado por Focal cuando ella tiene 0,1,2,… años.
 
 ``` r
 loss2 <- 
-  swe_2015$kin_summary %>%
+  gt_2015$kin_summary %>%
   group_by(age_focal) %>% 
   summarise(count = sum(count_cum_dead)) %>% 
   ungroup()
 
 
-swe_2015$kin_summary %>%
+gt_2015$kin_summary %>%
   group_by(age_focal, kin) %>% 
   summarise(count = sum(count_cum_dead)) %>% 
   ungroup() %>% 
@@ -394,7 +515,7 @@ swe_2015$kin_summary %>%
   ggplot(aes(x = age_focal, y = count)) +
   geom_area(aes(fill = kin), colour = "black") +
   geom_line(data = loss2, size = 2) +
-  labs(x = "Focal's age", y = "Number of kin deaths experienced (cumulative)") +
+  labs(x = "Edad de Focal", y = "Number of kin deaths experienced (cumulative)") +
   theme_bw() +
   theme(legend.position = "bottom")
 ```
@@ -402,17 +523,206 @@ swe_2015$kin_summary %>%
     ## `summarise()` has grouped output by 'age_focal'. You can override using the
     ## `.groups` argument.
 
-![](README_files/figure-gfm/unnamed-chunk-18-1.png)<!-- -->
+![](README_files/figure-gfm/unnamed-chunk-21-1.png)<!-- -->
 
 Por ejemplo, cuando Focal alcanza los 15, 50 y 65 años de edad, habrá
-perdido un promedio de 0.5, 1.9, 2.9 parientes.
+perdido un promedio de 0.6, 2.8, 4.2 parientes.
 
-# 5\. Viñeta y extensiones
+# 5\. Ejemplo: dinámicas regionales
+
+Cómo varían las estructuras de parentesco a nivel latinoamericano?
+
+Primero descargamos los datos necesarios:
+
+``` r
+# pick countries
+countries <- c("Argentina", "Cuba", "Chile", "Guatemala", "Mexico", "Brazil")
+
+# Year range
+
+my_startyr   <- 2022
+my_endyr     <- my_startyr
+
+data <- get_UNWPP_inputs(
+  countries = countries
+  , my_startyr = my_startyr
+  , my_endyr = my_endyr
+  )
+```
+
+    ## [1] "Getting API ready..."
+    ## [1] "Getting mortality data for Argentina, Cuba, Chile, Guatemala, Mexico, Brazil"
+    ## [1] "Getting fertility data for Argentina, Cuba, Chile, Guatemala, Mexico, Brazil"
+
+Corramos los modelos de parentesco para estos países, asumiendo una
+población estable femenina.
+
+``` r
+# period data for decennial years
+period_kin <- 
+  data %>%
+  split(list(.$Location)) %>%
+  map_df(function(X){
+    print(paste(unique(X$Location), unique(X$Time)))
+    kin(X$px, X$ASFR)$kin_summary %>%
+      mutate(Location = unique(X$Location))
+  })
+```
+
+    ## [1] "Argentina 2022"
+    ## [1] "Brazil 2022"
+    ## [1] "Chile 2022"
+    ## [1] "Cuba 2022"
+    ## [1] "Guatemala 2022"
+    ## [1] "Mexico 2022"
+
+Primero, definimos una función que nos permite aproximar parientes sin
+importar el sexo (usando “factores GKP”):
+
+``` r
+# A function to apply GKP factors to a female-only population to approximate kin counts for a two-sex population by multiplying daughters by 2, granddaughters by 4, etc. 
+approx_two_sex <- function(df){
+  print("Note: approx_two_sex only keeps columns with data on kin counts!")
+      factors <- c("coa" = 8, "cya" = 8, "d" = 2, "gd" = 4, "ggd" = 8, "ggm" = 8, "gm" = 4, "m" = 2, "nos" = 4, "nys" = 4, "oa" = 4, "ya" = 4, "os" = 2, "ys" = 2)
+
+df <- as.data.frame(df)
+factors_vec <- factors[df$kin]
+df$count_living <- df$count_living*factors_vec
+df$count_dead <- df$count_dead*factors_vec
+drop <- c("mean_age", "sd_age", "count_cum_dead", "mean_age_lost")
+df[,!(names(df) %in% drop)]
+}
+
+# A small hack on the existing rename_kin function to make sure it keeps all columns
+rename_kin2 <- function (df, consolidate_column = "no") {
+  stopifnot(`Argument 'consolidate_column' should be 'no' or a valid column name` = consolidate_column %in% 
+    c("no", colnames(df)))
+  if (consolidate_column == "no") {
+    relatives <- c("Cousins from older aunt", "Cousins from younger aunt", 
+      "Daughter", "Grand-daughter", "Great-grand-daughter", 
+      "Great-grandmother", "Grandmother", "Mother", "Nieces from older sister", 
+      "Nieces from younger sister", "Aunt older than mother", 
+      "Aunt younger than mother", "Older sister", "Younger sister")
+    names(relatives) <- c("coa", "cya", "d", "gd", "ggd", 
+      "ggm", "gm", "m", "nos", "nys", "oa", "ya", "os", 
+      "ys")
+  }
+  else {
+    consolidate_vec <- c("c", "c", "d", "gd", "ggd", "ggm", 
+      "gm", "m", "n", "n", "a", "a", "s", "s")
+    names(consolidate_vec) <- c("coa", "cya", "d", "gd", 
+      "ggd", "ggm", "gm", "m", "nos", "nys", "oa", "ya", 
+      "os", "ys")
+    relatives <- c("Cousins", "Daughter", "Grand-daughter", 
+      "Great-grand-daughter", "Great-grandmother", "Grandmother", 
+      "Mother", "Nieces", "Aunt", "Sister")
+    names(relatives) <- unique(consolidate_vec)
+    df <- as.data.frame(df)
+    df$count <- df[, consolidate_column]
+    df <- df %>% dplyr::mutate(kin = consolidate_vec[kin]) %>% 
+      dplyr::group_by(age_focal, kin, Location) %>% 
+      dplyr::summarise(
+        count = sum(count)
+        , Location = unique(Location)
+        ) %>% 
+      dplyr::ungroup()
+  }
+  df$kin <- relatives[df$kin]
+  df
+}
+```
+
+Ahora podemos visualizar algunos patrones elementales de la estructura
+de parentesco en estos países, tales como la estructura familiar.
+
+``` r
+period_kin %>% 
+  approx_two_sex() %>% 
+  select(age_focal, kin, count = count_living, Location) %>% 
+  rename_kin2(consolidate_column = "count") %>%
+  ggplot(aes(x = age_focal, y = count)) +
+  geom_area(aes(fill = kin), colour = "black") +
+  # geom_line(data = counts, size = 2) +
+  labs(x = "Edad de Focal", y = "Número de parientes vivas") +
+  facet_wrap(~Location) +
+  theme_bw() +
+  theme(legend.position = "bottom")
+```
+
+    ## [1] "Note: approx_two_sex only keeps columns with data on kin counts!"
+
+    ## `summarise()` has grouped output by 'age_focal', 'kin'. You can override using
+    ## the `.groups` argument.
+
+![](README_files/figure-gfm/unnamed-chunk-25-1.png)<!-- -->
+
+Cuantas muertes de familiares experimenta una persona en la edad exacta
+‘x’ en distintos paises de LATAM?
+
+``` r
+cum_death <-
+  period_kin %>% 
+  approx_two_sex() %>% 
+  # We estimate the cummulative number of kin deaths by hand
+  group_by(Location, kin) %>% 
+  arrange(age_focal) %>% 
+  mutate(count_cum_dead = cumsum(count_dead)) %>% 
+  ungroup() %>% 
+  rename_kin2(consolidate_column = "count_cum_dead")
+```
+
+    ## [1] "Note: approx_two_sex only keeps columns with data on kin counts!"
+
+    ## `summarise()` has grouped output by 'age_focal', 'kin'. You can override using
+    ## the `.groups` argument.
+
+``` r
+cum_death %>% 
+  ggplot(aes(x = age_focal, y = count)) +
+  geom_area(aes(fill = kin), colour = "black") +
+  facet_wrap(~Location) +
+  labs(x = "Edad de Focal", y = "Numero acumulado de muertes experimentadas") +
+  theme_bw() +
+  theme(legend.position = "bottom")
+```
+
+![](README_files/figure-gfm/unnamed-chunk-26-1.png)<!-- -->
+
+Y todos los paises en una grafica:
+
+``` r
+death_line <-
+  cum_death %>% 
+  filter(age_focal>0) %>%
+  group_by(Location, age_focal) %>% 
+  summarise(count = sum(count)) %>% 
+  ungroup() 
+```
+
+    ## `summarise()` has grouped output by 'Location'. You can override using the
+    ## `.groups` argument.
+
+``` r
+death_line  %>% 
+  ggplot(aes(x = age_focal, y = count, colour = Location, shape = Location)) +
+  geom_point(
+    size = 4
+    , data = . %>% filter(age_focal %in% seq(0,100,20))
+    ) +
+  geom_line(size = 1) +
+  labs(x = "Edad de Focal", y = "Numero acumulado de muertes experimentadas") +
+  theme_bw() +
+  theme(legend.position = "bottom")
+```
+
+![](README_files/figure-gfm/unnamed-chunk-27-1.png)<!-- -->
+
+# 6\. Viñeta y extensiones
 
 Para más detalles sobre `DemoKin`, incluyendo una extensión a
 poblaciones no estables, y modelos multi-state, ver
 `vignette("Reference", package = "DemoKin")`. Si la viñeta no carga,
-intente instalar el paquete asíÑ
+intente instalar el paquete así:
 `devtools::install_github("IvanWilli/DemoKin", build_vignettes = TRUE)`.
 
 Para una descripción detallada de los modelos de parentesco, ver:
@@ -454,7 +764,7 @@ los parientes de Focal (en las columnas `kin_summary$mean_age` y
 hermanas de Focal:
 
 ``` r
-swe_2015$kin_summary %>%  
+gt_2015$kin_summary %>%  
   filter(kin %in% c("os", "ys")) %>% 
   rename_kin() %>% 
   select(kin, age_focal, mean_age, sd_age) %>% 
@@ -468,7 +778,7 @@ swe_2015$kin_summary %>%
 
     ## Warning: Removed 1 row(s) containing missing values (geom_path).
 
-![](README_files/figure-gfm/unnamed-chunk-21-1.png)<!-- -->
+![](README_files/figure-gfm/unnamed-chunk-30-1.png)<!-- -->
 
 **Instrucciones**
 
@@ -597,7 +907,7 @@ sessionInfo()
     ## 
     ## other attached packages:
     ## [1] fields_11.6     spam_2.6-0      dotCall64_1.0-1 ggplot2_3.3.3  
-    ## [5] tidyr_1.1.3     dplyr_1.0.5     DemoKin_1.0.0  
+    ## [5] purrr_0.3.4     tidyr_1.1.3     dplyr_1.0.5     DemoKin_1.0.0  
     ## 
     ## loaded via a namespace (and not attached):
     ##  [1] highr_0.8        pillar_1.5.1     compiler_4.0.2   tools_4.0.2     
@@ -607,10 +917,10 @@ sessionInfo()
     ## [17] xfun_0.21        fastmap_1.1.0    withr_2.5.0      stringr_1.4.0   
     ## [21] knitr_1.31       maps_3.3.0       generics_0.1.0   vctrs_0.4.1     
     ## [25] tidyselect_1.1.0 glue_1.6.2       R6_2.5.0         fansi_0.4.2     
-    ## [29] rmarkdown_2.7    farver_2.1.0     purrr_0.3.4      magrittr_2.0.1  
-    ## [33] scales_1.1.1     ellipsis_0.3.2   htmltools_0.5.2  assertthat_0.2.1
-    ## [37] colorspace_2.0-0 labeling_0.4.2   utf8_1.2.1       stringi_1.5.3   
-    ## [41] munsell_0.5.0    crayon_1.4.1
+    ## [29] rmarkdown_2.7    farver_2.1.0     magrittr_2.0.1   scales_1.1.1    
+    ## [33] ellipsis_0.3.2   htmltools_0.5.2  assertthat_0.2.1 colorspace_2.0-0
+    ## [37] labeling_0.4.2   utf8_1.2.1       stringi_1.5.3    munsell_0.5.0   
+    ## [41] crayon_1.4.1
 
 ## References
 
