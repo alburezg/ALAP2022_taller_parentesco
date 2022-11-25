@@ -128,6 +128,61 @@ get_UNWPP_inputs <- function(countries, my_startyr, my_endyr, variant = "Median"
 }
 ```
 
+Otras funciones utiles que usaremos ma adelante:
+
+``` r
+# A function to apply GKP factors to a female-only population to approximate kin counts for a two-sex population by multiplying daughters by 2, granddaughters by 4, etc. 
+approx_two_sex <- function(df){
+  print("Note: approx_two_sex only keeps columns with data on kin counts!")
+      factors <- c("coa" = 8, "cya" = 8, "d" = 2, "gd" = 4, "ggd" = 8, "ggm" = 8, "gm" = 4, "m" = 2, "nos" = 4, "nys" = 4, "oa" = 4, "ya" = 4, "os" = 2, "ys" = 2)
+
+df <- as.data.frame(df)
+factors_vec <- factors[df$kin]
+df$count_living <- df$count_living*factors_vec
+df$count_dead <- df$count_dead*factors_vec
+drop <- c("mean_age", "sd_age", "count_cum_dead", "mean_age_lost")
+df[,!(names(df) %in% drop)]
+}
+
+# A small hack on the existing rename_kin function to make sure it keeps all columns
+rename_kin2 <- function (df, consolidate_column = "no") {
+  stopifnot(`Argument 'consolidate_column' should be 'no' or a valid column name` = consolidate_column %in% 
+    c("no", colnames(df)))
+  if (consolidate_column == "no") {
+    relatives <- c("Cousins from older aunt", "Cousins from younger aunt", 
+      "Daughter", "Grand-daughter", "Great-grand-daughter", 
+      "Great-grandmother", "Grandmother", "Mother", "Nieces from older sister", 
+      "Nieces from younger sister", "Aunt older than mother", 
+      "Aunt younger than mother", "Older sister", "Younger sister")
+    names(relatives) <- c("coa", "cya", "d", "gd", "ggd", 
+      "ggm", "gm", "m", "nos", "nys", "oa", "ya", "os", 
+      "ys")
+  }
+  else {
+    consolidate_vec <- c("c", "c", "d", "gd", "ggd", "ggm", 
+      "gm", "m", "n", "n", "a", "a", "s", "s")
+    names(consolidate_vec) <- c("coa", "cya", "d", "gd", 
+      "ggd", "ggm", "gm", "m", "nos", "nys", "oa", "ya", 
+      "os", "ys")
+    relatives <- c("Cousins", "Daughter", "Grand-daughter", 
+      "Great-grand-daughter", "Great-grandmother", "Grandmother", 
+      "Mother", "Nieces", "Aunt", "Sister")
+    names(relatives) <- unique(consolidate_vec)
+    df <- as.data.frame(df)
+    df$count <- df[, consolidate_column]
+    df <- df %>% dplyr::mutate(kin = consolidate_vec[kin]) %>% 
+      dplyr::group_by(age_focal, kin, Location) %>% 
+      dplyr::summarise(
+        count = sum(count)
+        , Location = unique(Location)
+        ) %>% 
+      dplyr::ungroup()
+  }
+  df$kin <- relatives[df$kin]
+  df
+}
+```
+
 Ahora, usemos esta función para descargar los datos que necesitamos para
 correr nuestro modelos de parentesco. Para este ejemplo, queremos datos
 de países latinoamericanos:
@@ -199,7 +254,7 @@ image.plot(
   )
 ```
 
-![](README_files/figure-gfm/unnamed-chunk-7-1.png)<!-- -->
+![](README_files/figure-gfm/unnamed-chunk-8-1.png)<!-- -->
 
 ### 2.2. `gt_asfr` matriz; tasas específicas de fecundidad (argumento *f* en DemoKin)
 
@@ -229,7 +284,7 @@ image.plot(
   )
 ```
 
-![](README_files/figure-gfm/unnamed-chunk-9-1.png)<!-- -->
+![](README_files/figure-gfm/unnamed-chunk-10-1.png)<!-- -->
 
 # 3\. La función `kin()`
 
@@ -392,7 +447,7 @@ gt_2015$kin_summary %>%
   plot_diagram(rounding = 2)
 ```
 
-![](README_files/figure-gfm/unnamed-chunk-16-1.png)<!-- -->
+![](README_files/figure-gfm/unnamed-chunk-17-1.png)<!-- -->
 
 ## 4.2. Parentela viva
 
@@ -412,7 +467,7 @@ gt_2015$kin_summary %>%
   facet_wrap(~kin)
 ```
 
-![](README_files/figure-gfm/unnamed-chunk-17-1.png)<!-- -->
+![](README_files/figure-gfm/unnamed-chunk-18-1.png)<!-- -->
 
 Podemos mostrar todo en una gráfica para visualizar el tamaño absoluto
 de las redes familiares de Focal:
@@ -436,7 +491,7 @@ gt_2015$kin_summary %>%
   theme(legend.position = "bottom")
 ```
 
-![](README_files/figure-gfm/unnamed-chunk-18-1.png)<!-- -->
+![](README_files/figure-gfm/unnamed-chunk-19-1.png)<!-- -->
 
 ## 4.3. Distribución etaria de la parentela con vida
 
@@ -457,7 +512,7 @@ gt_2015$kin_full %>%
   facet_wrap(~kin)
 ```
 
-![](README_files/figure-gfm/unnamed-chunk-19-1.png)<!-- -->
+![](README_files/figure-gfm/unnamed-chunk-20-1.png)<!-- -->
 
 ## 4.4. Parientes muertos
 
@@ -494,7 +549,7 @@ gt_2015$kin_summary %>%
     ## `summarise()` has grouped output by 'age_focal'. You can override using the
     ## `.groups` argument.
 
-![](README_files/figure-gfm/unnamed-chunk-20-1.png)<!-- -->
+![](README_files/figure-gfm/unnamed-chunk-21-1.png)<!-- -->
 
 La suma de estos valores indica el número acumulado de muertes de
 parientes experimentado por Focal cuando ella tiene 0,1,2,… años.
@@ -523,20 +578,23 @@ gt_2015$kin_summary %>%
     ## `summarise()` has grouped output by 'age_focal'. You can override using the
     ## `.groups` argument.
 
-![](README_files/figure-gfm/unnamed-chunk-21-1.png)<!-- -->
+![](README_files/figure-gfm/unnamed-chunk-22-1.png)<!-- -->
 
 Por ejemplo, cuando Focal alcanza los 15, 50 y 65 años de edad, habrá
 perdido un promedio de 0.6, 2.8, 4.2 parientes.
 
 # 5\. Ejemplo: dinámicas regionales
 
-Cómo varían las estructuras de parentesco a nivel latinoamericano?
+Cómo varían las estructuras de parentesco a nivel latinoamericano? Que
+tan comun es experimentar una muerte en la familia, y como se
+distribuyen estas perdidas familiares a lo largo de la vida?
 
 Primero descargamos los datos necesarios:
 
 ``` r
 # pick countries
-countries <- c("Argentina", "Cuba", "Chile", "Guatemala", "Mexico", "Brazil")
+# countries <- c("Argentina", "Colombia", "Chile", "Guatemala", "Mexico", "Brazil")
+countries <- c("Argentina", "Haiti", "Chile", "Guatemala")
 
 # Year range
 
@@ -551,14 +609,13 @@ data <- get_UNWPP_inputs(
 ```
 
     ## [1] "Getting API ready..."
-    ## [1] "Getting mortality data for Argentina, Cuba, Chile, Guatemala, Mexico, Brazil"
-    ## [1] "Getting fertility data for Argentina, Cuba, Chile, Guatemala, Mexico, Brazil"
+    ## [1] "Getting mortality data for Argentina, Haiti, Chile, Guatemala"
+    ## [1] "Getting fertility data for Argentina, Haiti, Chile, Guatemala"
 
 Corramos los modelos de parentesco para estos países, asumiendo una
 población estable femenina.
 
 ``` r
-# period data for decennial years
 period_kin <- 
   data %>%
   split(list(.$Location)) %>%
@@ -570,67 +627,12 @@ period_kin <-
 ```
 
     ## [1] "Argentina 2022"
-    ## [1] "Brazil 2022"
     ## [1] "Chile 2022"
-    ## [1] "Cuba 2022"
     ## [1] "Guatemala 2022"
-    ## [1] "Mexico 2022"
+    ## [1] "Haiti 2022"
 
 Primero, definimos una función que nos permite aproximar parientes sin
 importar el sexo (usando “factores GKP”):
-
-``` r
-# A function to apply GKP factors to a female-only population to approximate kin counts for a two-sex population by multiplying daughters by 2, granddaughters by 4, etc. 
-approx_two_sex <- function(df){
-  print("Note: approx_two_sex only keeps columns with data on kin counts!")
-      factors <- c("coa" = 8, "cya" = 8, "d" = 2, "gd" = 4, "ggd" = 8, "ggm" = 8, "gm" = 4, "m" = 2, "nos" = 4, "nys" = 4, "oa" = 4, "ya" = 4, "os" = 2, "ys" = 2)
-
-df <- as.data.frame(df)
-factors_vec <- factors[df$kin]
-df$count_living <- df$count_living*factors_vec
-df$count_dead <- df$count_dead*factors_vec
-drop <- c("mean_age", "sd_age", "count_cum_dead", "mean_age_lost")
-df[,!(names(df) %in% drop)]
-}
-
-# A small hack on the existing rename_kin function to make sure it keeps all columns
-rename_kin2 <- function (df, consolidate_column = "no") {
-  stopifnot(`Argument 'consolidate_column' should be 'no' or a valid column name` = consolidate_column %in% 
-    c("no", colnames(df)))
-  if (consolidate_column == "no") {
-    relatives <- c("Cousins from older aunt", "Cousins from younger aunt", 
-      "Daughter", "Grand-daughter", "Great-grand-daughter", 
-      "Great-grandmother", "Grandmother", "Mother", "Nieces from older sister", 
-      "Nieces from younger sister", "Aunt older than mother", 
-      "Aunt younger than mother", "Older sister", "Younger sister")
-    names(relatives) <- c("coa", "cya", "d", "gd", "ggd", 
-      "ggm", "gm", "m", "nos", "nys", "oa", "ya", "os", 
-      "ys")
-  }
-  else {
-    consolidate_vec <- c("c", "c", "d", "gd", "ggd", "ggm", 
-      "gm", "m", "n", "n", "a", "a", "s", "s")
-    names(consolidate_vec) <- c("coa", "cya", "d", "gd", 
-      "ggd", "ggm", "gm", "m", "nos", "nys", "oa", "ya", 
-      "os", "ys")
-    relatives <- c("Cousins", "Daughter", "Grand-daughter", 
-      "Great-grand-daughter", "Great-grandmother", "Grandmother", 
-      "Mother", "Nieces", "Aunt", "Sister")
-    names(relatives) <- unique(consolidate_vec)
-    df <- as.data.frame(df)
-    df$count <- df[, consolidate_column]
-    df <- df %>% dplyr::mutate(kin = consolidate_vec[kin]) %>% 
-      dplyr::group_by(age_focal, kin, Location) %>% 
-      dplyr::summarise(
-        count = sum(count)
-        , Location = unique(Location)
-        ) %>% 
-      dplyr::ungroup()
-  }
-  df$kin <- relatives[df$kin]
-  df
-}
-```
 
 Ahora podemos visualizar algunos patrones elementales de la estructura
 de parentesco en estos países, tales como la estructura familiar.
@@ -642,7 +644,6 @@ period_kin %>%
   rename_kin2(consolidate_column = "count") %>%
   ggplot(aes(x = age_focal, y = count)) +
   geom_area(aes(fill = kin), colour = "black") +
-  # geom_line(data = counts, size = 2) +
   labs(x = "Edad de Focal", y = "Número de parientes vivas") +
   facet_wrap(~Location) +
   theme_bw() +
@@ -658,6 +659,32 @@ period_kin %>%
 
 Cuantas muertes de familiares experimenta una persona en la edad exacta
 ‘x’ en distintos paises de LATAM?
+
+``` r
+exact_death <- 
+  period_kin %>% 
+  approx_two_sex() %>% 
+    rename_kin2(consolidate_column = "count_dead")
+```
+
+    ## [1] "Note: approx_two_sex only keeps columns with data on kin counts!"
+
+    ## `summarise()` has grouped output by 'age_focal', 'kin'. You can override using
+    ## the `.groups` argument.
+
+``` r
+exact_death %>% 
+  ggplot(aes(x = age_focal, y = count)) +
+  geom_area(aes(fill = kin), colour = "black") +
+  facet_wrap(~Location) +
+  labs(x = "Edad de Focal", y = "Perdidas familiares experimentadas en cada edad") +
+  theme_bw() +
+  theme(legend.position = "bottom")
+```
+
+![](README_files/figure-gfm/unnamed-chunk-26-1.png)<!-- -->
+
+El numero de muertes familiares acumuldas:
 
 ``` r
 cum_death <-
@@ -681,41 +708,59 @@ cum_death %>%
   ggplot(aes(x = age_focal, y = count)) +
   geom_area(aes(fill = kin), colour = "black") +
   facet_wrap(~Location) +
-  labs(x = "Edad de Focal", y = "Numero acumulado de muertes experimentadas") +
+  labs(x = "Edad de Focal", y = "Numero acumulado de muertes familiares") +
   theme_bw() +
   theme(legend.position = "bottom")
 ```
 
-![](README_files/figure-gfm/unnamed-chunk-26-1.png)<!-- -->
+![](README_files/figure-gfm/unnamed-chunk-27-1.png)<!-- -->
 
-Y todos los paises en una grafica:
+Finalmente, graficamos los resultados sin diferenciar el numero de
+parientes y comparamos los resultados para cada pais en una misma
+grafica:
 
 ``` r
-death_line <-
-  cum_death %>% 
+exact_line <-
+  exact_death %>% 
   filter(age_focal>0) %>%
   group_by(Location, age_focal) %>% 
   summarise(count = sum(count)) %>% 
-  ungroup() 
+  ungroup() %>% 
+  mutate(variable = "A cada edad")
 ```
 
     ## `summarise()` has grouped output by 'Location'. You can override using the
     ## `.groups` argument.
 
 ``` r
-death_line  %>% 
+cum_line <-
+  cum_death %>% 
+  filter(age_focal>0) %>%
+  group_by(Location, age_focal) %>% 
+  summarise(count = sum(count)) %>% 
+  ungroup() %>% 
+  mutate(variable = "Acumulado")
+```
+
+    ## `summarise()` has grouped output by 'Location'. You can override using the
+    ## `.groups` argument.
+
+``` r
+exact_line %>% 
+  bind_rows(cum_line) %>% 
   ggplot(aes(x = age_focal, y = count, colour = Location, shape = Location)) +
   geom_point(
     size = 4
     , data = . %>% filter(age_focal %in% seq(0,100,20))
     ) +
   geom_line(size = 1) +
-  labs(x = "Edad de Focal", y = "Numero acumulado de muertes experimentadas") +
+  labs(x = "Edad de Focal", y = "Numero de muertes familiares experimentadas") +
+  facet_wrap(~variable, scales = "free") +
   theme_bw() +
   theme(legend.position = "bottom")
 ```
 
-![](README_files/figure-gfm/unnamed-chunk-27-1.png)<!-- -->
+![](README_files/figure-gfm/unnamed-chunk-28-1.png)<!-- -->
 
 # 6\. Viñeta y extensiones
 
@@ -778,7 +823,7 @@ gt_2015$kin_summary %>%
 
     ## Warning: Removed 1 row(s) containing missing values (geom_path).
 
-![](README_files/figure-gfm/unnamed-chunk-30-1.png)<!-- -->
+![](README_files/figure-gfm/unnamed-chunk-31-1.png)<!-- -->
 
 **Instrucciones**
 
