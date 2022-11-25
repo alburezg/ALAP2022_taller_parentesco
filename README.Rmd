@@ -323,7 +323,7 @@ kin_by_age_focal %>%
 
 ```
 
-# 4. Ejemplo: número de parientes en poblaciones estables
+# 4. Ejemplo: número de parientes en Guatemala (poblaciones estables)
 
 Seguimos a Caswell [-@caswell_formal_2019], al asumir una población femenina matrilineal cerradaen la cual todas experimentan las tasas de mortalidad y fecundidad en Argentina a lo largo de su vida.
 Preguntamos:
@@ -458,7 +458,7 @@ gt_2015$kin_summary %>%
 
 Por ejemplo, cuando Focal alcanza los 15, 50 y  65 años de edad, habrá perdido un promedio de `r loss2 %>% filter(age_focal %in% c(15, 50, 65)) %>% pull(count) %>% round(1) %>% paste(., collapse = ", ")` parientes.
 
-# 5. Ejemplo: dinámicas regionales
+# 5. Parentesco en América Latina (poblaciones estables)
 
 Cómo varían las estructuras de parentesco a nivel latinoamericano? Que tan comun es experimentar una muerte en la familia, y como se distribuyen estas perdidas familiares a lo largo de la vida?
 
@@ -466,7 +466,6 @@ Primero descargamos los datos necesarios:
 
 ```{r}
 # pick countries
-# countries <- c("Argentina", "Colombia", "Chile", "Guatemala", "Mexico", "Brazil")
 countries <- c("Argentina", "Haiti", "Chile", "Guatemala")
 
 # Year range
@@ -528,7 +527,7 @@ exact_death %>%
   theme(legend.position = "bottom")
 ```
 
-El numero de muertes familiares acumuldas:
+El numero de perdidas familiares acumuldas:
 
 ```{r}
 cum_death <-
@@ -545,7 +544,7 @@ cum_death %>%
   ggplot(aes(x = age_focal, y = count)) +
   geom_area(aes(fill = kin), colour = "black") +
   facet_wrap(~Location) +
-  labs(x = "Edad de Focal", y = "Numero acumulado de muertes familiares") +
+  labs(x = "Edad de Focal", y = "Numero acumulado de perdidas familiares") +
   theme_bw() +
   theme(legend.position = "bottom")
 ```
@@ -578,14 +577,99 @@ exact_line %>%
     , data = . %>% filter(age_focal %in% seq(0,100,20))
     ) +
   geom_line(size = 1) +
-  labs(x = "Edad de Focal", y = "Numero de muertes familiares experimentadas") +
+  labs(x = "Edad de Focal", y = "Numero de perdidas familiares experimentadas") +
   facet_wrap(~variable, scales = "free") +
   theme_bw() +
   theme(legend.position = "bottom")
 
 ```
 
-# 6. Viñeta y extensiones
+# 6. Abuelos a traves del tiempo (poblaciones no estables)
+
+```{r}
+
+# pick countries
+countries <- c("Argentina", "Haiti", "Chile", "Guatemala")
+
+# Year range
+
+my_startyr   <- 1950
+my_endyr     <- 2020
+
+data <- get_UNWPP_inputs(
+  countries = countries
+  , my_startyr = my_startyr
+  , my_endyr = my_endyr
+  )
+```
+
+Explorar cambios a traves del tiempo en una perspectiva de periodo. Vamos a usar un model que no asume estabilidad de tasas demograficas. 
+
+```{r}
+
+# period data for decennial years
+period_kin_temp <- 
+  data %>%
+  split(list(.$Location)) %>%
+  map_df(function(X){
+    print(unique(X$Location))
+    U <-
+      X %>%
+      select(Time, age, px) %>%
+      pivot_wider(names_from = Time, values_from = px) %>%
+      select(-age) %>% as.matrix()
+    f <- X %>%
+      select(Time, age, ASFR) %>%
+      mutate(ASFR = ASFR/1000) %>% 
+      pivot_wider(names_from = Time, values_from = ASFR) %>%
+      select(-age) %>% as.matrix()
+    kin(U, f, time_invariant = FALSE, output_kin = c("gm"), output_period = seq(1950, 2020, 10))$kin_summary %>%
+      mutate(Location = unique(X$Location),  .before = 1)
+  })
+
+# Aproximemos valores para dos sexos usando GKP factors:
+
+period_kin <- 
+  period_kin_temp %>% 
+    approx_two_sex()
+
+```
+
+Ahora podemos graficar cambio a travel del tiempo, por ejemplo, en el numero promedio de abuelos para ninos de 5 anios de edad:
+
+```{r}
+
+period_kin %>% 
+  filter(age_focal %in% c(5)) %>% 
+  select(Location, kin, year, age_focal, count_living) %>% 
+  ggplot(aes(year,count_living,color=Location, shape = Location)) +
+  geom_line(size = 1) + 
+  geom_point(size = 4) +
+  labs(x = "Año", y = "Número de abuelos vivos para un niño de 5 años") +
+  theme_bw() +
+  theme(legend.position = "bottom") 
+
+```
+
+Finalmente, que tan comun es perder a un abuelo y a que edad se experimenta la perdida de un abuelo en los distintos paises? Como ha cambiado esto a traves del tiempo?
+
+```{r}
+period_kin %>% 
+  filter(
+    between(age_focal, 1, 50)
+    , year %in% c(1950, 1980, 2020)
+    ) %>% 
+  mutate(year = as.factor(year)) %>% 
+  ggplot(aes(x = age_focal, y = count_dead, colour = year, group = year, shape = year)) +
+  geom_line(size = 1) + 
+  geom_point(size = 4, data = . %>% filter(age_focal %in% c(1, seq(0, 50, 10)))) +
+  labs(x = "Edad de Focal", y = "Número de abuelos que mueren a cada edad", shape = "Año", colour = "Año") +
+  facet_wrap(~Location) +
+  theme_bw() +
+  theme(legend.position = "bottom") 
+```
+
+# 7. Viñeta y extensiones
 
 Para más detalles sobre `DemoKin`, incluyendo una extensión a poblaciones no estables, y modelos multi-state, ver `vignette("Reference", package = "DemoKin")`. Si la viñeta no carga, intente instalar el paquete así: `devtools::install_github("IvanWilli/DemoKin", build_vignettes = TRUE)`.
 
@@ -596,7 +680,7 @@ Para una descripción detallada de los modelos de parentesco, ver:
 - poblaciones no estables [@caswell_formal_2021], and
 - modelos con dos sexos [@caswell_formal_2022].
 
-# 6. Ejercicios
+# 8. Ejercicios
 
 **Para todos los ejercicios, asuma una población estable femenina con las tasas de 2010 en Argentina.**
 
@@ -691,7 +775,7 @@ Use DemoKin para estimar la probabilidad de que Focal esté ensanguchada, $S(a)$
 # Escriba su código aquí
 ```
 
-# 8. Session info
+# Session info
 
 
 ```{r}

@@ -8,12 +8,15 @@ Pre-evento del X Congreso ALAP; Valparaíso, Chile - 6 Dic 2022
     Unidas](#2-descargar-datos-de-naciones-unidas)
   - [2. Visualizar los datos](#2-visualizar-los-datos)
   - [3. La función `kin()`](#3-la-función-kin)
-  - [4. Ejemplo: número de parientes en poblaciones
-    estables](#4-ejemplo-número-de-parientes-en-poblaciones-estables)
-  - [5. Ejemplo: dinámicas regionales](#5-ejemplo-dinámicas-regionales)
-  - [6. Viñeta y extensiones](#6-viñeta-y-extensiones)
-  - [6. Ejercicios](#6-ejercicios)
-  - [8. Session info](#8-session-info)
+  - [4. Ejemplo: número de parientes en Guatemala (poblaciones
+    estables)](#4-ejemplo-número-de-parientes-en-guatemala-poblaciones-estables)
+  - [5. Parentesco en América Latina (poblaciones
+    estables)](#5-parentesco-en-américa-latina-poblaciones-estables)
+  - [6. Abuelos a traves del tiempo (poblaciones no
+    estables)](#6-abuelos-a-traves-del-tiempo-poblaciones-no-estables)
+  - [7. Viñeta y extensiones](#7-viñeta-y-extensiones)
+  - [8. Ejercicios](#8-ejercicios)
+  - [Session info](#session-info)
 
 <img src="DemoKin-Logo.png" align="right" width="200" />
 
@@ -415,7 +418,7 @@ kin_by_age_focal %>%
 
     ## [1] TRUE
 
-# 4\. Ejemplo: número de parientes en poblaciones estables
+# 4\. Ejemplo: número de parientes en Guatemala (poblaciones estables)
 
 Seguimos a Caswell (2019), al asumir una población femenina matrilineal
 cerradaen la cual todas experimentan las tasas de mortalidad y
@@ -583,7 +586,7 @@ gt_2015$kin_summary %>%
 Por ejemplo, cuando Focal alcanza los 15, 50 y 65 años de edad, habrá
 perdido un promedio de 0.6, 2.8, 4.2 parientes.
 
-# 5\. Ejemplo: dinámicas regionales
+# 5\. Parentesco en América Latina (poblaciones estables)
 
 Cómo varían las estructuras de parentesco a nivel latinoamericano? Que
 tan comun es experimentar una muerte en la familia, y como se
@@ -593,7 +596,6 @@ Primero descargamos los datos necesarios:
 
 ``` r
 # pick countries
-# countries <- c("Argentina", "Colombia", "Chile", "Guatemala", "Mexico", "Brazil")
 countries <- c("Argentina", "Haiti", "Chile", "Guatemala")
 
 # Year range
@@ -684,7 +686,7 @@ exact_death %>%
 
 ![](README_files/figure-gfm/unnamed-chunk-26-1.png)<!-- -->
 
-El numero de muertes familiares acumuldas:
+El numero de perdidas familiares acumuldas:
 
 ``` r
 cum_death <-
@@ -708,7 +710,7 @@ cum_death %>%
   ggplot(aes(x = age_focal, y = count)) +
   geom_area(aes(fill = kin), colour = "black") +
   facet_wrap(~Location) +
-  labs(x = "Edad de Focal", y = "Numero acumulado de muertes familiares") +
+  labs(x = "Edad de Focal", y = "Numero acumulado de perdidas familiares") +
   theme_bw() +
   theme(legend.position = "bottom")
 ```
@@ -754,7 +756,7 @@ exact_line %>%
     , data = . %>% filter(age_focal %in% seq(0,100,20))
     ) +
   geom_line(size = 1) +
-  labs(x = "Edad de Focal", y = "Numero de muertes familiares experimentadas") +
+  labs(x = "Edad de Focal", y = "Numero de perdidas familiares experimentadas") +
   facet_wrap(~variable, scales = "free") +
   theme_bw() +
   theme(legend.position = "bottom")
@@ -762,7 +764,128 @@ exact_line %>%
 
 ![](README_files/figure-gfm/unnamed-chunk-28-1.png)<!-- -->
 
-# 6\. Viñeta y extensiones
+# 6\. Abuelos a traves del tiempo (poblaciones no estables)
+
+``` r
+# pick countries
+countries <- c("Argentina", "Haiti", "Chile", "Guatemala")
+
+# Year range
+
+my_startyr   <- 1950
+my_endyr     <- 2020
+
+data <- get_UNWPP_inputs(
+  countries = countries
+  , my_startyr = my_startyr
+  , my_endyr = my_endyr
+  )
+```
+
+    ## [1] "Getting API ready..."
+    ## [1] "Getting mortality data for Argentina, Haiti, Chile, Guatemala"
+    ## [1] "Getting fertility data for Argentina, Haiti, Chile, Guatemala"
+
+Explorar cambios a traves del tiempo en una perspectiva de periodo.
+Vamos a usar un model que no asume estabilidad de tasas demograficas.
+
+``` r
+# period data for decennial years
+period_kin_temp <- 
+  data %>%
+  split(list(.$Location)) %>%
+  map_df(function(X){
+    print(unique(X$Location))
+    U <-
+      X %>%
+      select(Time, age, px) %>%
+      pivot_wider(names_from = Time, values_from = px) %>%
+      select(-age) %>% as.matrix()
+    f <- X %>%
+      select(Time, age, ASFR) %>%
+      mutate(ASFR = ASFR/1000) %>% 
+      pivot_wider(names_from = Time, values_from = ASFR) %>%
+      select(-age) %>% as.matrix()
+    kin(U, f, time_invariant = FALSE, output_kin = c("gm"), output_period = seq(1950, 2020, 10))$kin_summary %>%
+      mutate(Location = unique(X$Location),  .before = 1)
+  })
+```
+
+    ## [1] "Argentina"
+
+    ## Stable assumption was made for calculating pi on each year because no input data.
+
+    ## Warning: replacing previous import 'lifecycle::last_warnings' by
+    ## 'rlang::last_warnings' when loading 'hms'
+
+    ## Assuming stable population before 1950.
+
+    ## [1] "Chile"
+
+    ## Stable assumption was made for calculating pi on each year because no input data.
+
+    ## Assuming stable population before 1950.
+
+    ## [1] "Guatemala"
+
+    ## Stable assumption was made for calculating pi on each year because no input data.
+    ## Assuming stable population before 1950.
+
+    ## [1] "Haiti"
+
+    ## Stable assumption was made for calculating pi on each year because no input data.
+    ## Assuming stable population before 1950.
+
+``` r
+# Aproximemos valores para dos sexos usando GKP factors:
+
+period_kin <- 
+  period_kin_temp %>% 
+    approx_two_sex()
+```
+
+    ## [1] "Note: approx_two_sex only keeps columns with data on kin counts!"
+
+Ahora podemos graficar cambio a travel del tiempo, por ejemplo, en el
+numero promedio de abuelos para ninos de 5 anios de edad:
+
+``` r
+period_kin %>% 
+  filter(age_focal %in% c(5)) %>% 
+  select(Location, kin, year, age_focal, count_living) %>% 
+  ggplot(aes(year,count_living,color=Location, shape = Location)) +
+  geom_line(size = 1) + 
+  geom_point(size = 4) +
+  labs(x = "Año", y = "Número de abuelos vivos para un niño de 5 años") +
+  theme_bw() +
+  theme(legend.position = "bottom") 
+```
+
+![](README_files/figure-gfm/unnamed-chunk-31-1.png)<!-- -->
+
+Finalmente, que tan comun es perder a un abuelo y a que edad se
+experimenta la perdida de un abuelo en los distintos paises? Como ha
+cambiado esto a traves del tiempo?
+
+``` r
+period_kin %>% 
+  filter(
+    between(age_focal, 1, 50)
+    , year %in% c(1950, 1980, 2020)
+    ) %>% 
+  mutate(year = as.factor(year)) %>% 
+  ggplot(aes(x = age_focal, y = count_dead, colour = year, group = year, shape = year)) +
+  geom_line(size = 1) + 
+  geom_point(size = 4, data = . %>% filter(age_focal %in% c(1, seq(0, 50, 10)))) +
+  labs(x = "Edad de Focal", y = "Número de abuelos que mueren a cada edad", shape = "Año", colour = "Año") +
+  facet_wrap(~Location) +
+  theme_bw() +
+  theme(legend.position = "bottom") 
+```
+
+![](README_files/figure-gfm/unnamed-chunk-32-1.png)<!-- -->
+
+# 7\. Viñeta y extensiones
 
 Para más detalles sobre `DemoKin`, incluyendo una extensión a
 poblaciones no estables, y modelos multi-state, ver
@@ -777,7 +900,7 @@ Para una descripción detallada de los modelos de parentesco, ver:
   - poblaciones no estables (Caswell and Song 2021), and
   - modelos con dos sexos (Caswell 2022).
 
-# 6\. Ejercicios
+# 8\. Ejercicios
 
 **Para todos los ejercicios, asuma una población estable femenina con
 las tasas de 2010 en Argentina.**
@@ -823,7 +946,7 @@ gt_2015$kin_summary %>%
 
     ## Warning: Removed 1 row(s) containing missing values (geom_path).
 
-![](README_files/figure-gfm/unnamed-chunk-31-1.png)<!-- -->
+![](README_files/figure-gfm/unnamed-chunk-35-1.png)<!-- -->
 
 **Instrucciones**
 
@@ -927,7 +1050,7 @@ edades 15 y 70. Asuma una población femenina estable.
 # Escriba su código aquí
 ```
 
-# 8\. Session info
+# Session info
 
 ``` r
 sessionInfo()
@@ -955,17 +1078,17 @@ sessionInfo()
     ## [5] purrr_0.3.4     tidyr_1.1.3     dplyr_1.0.5     DemoKin_1.0.0  
     ## 
     ## loaded via a namespace (and not attached):
-    ##  [1] highr_0.8        pillar_1.5.1     compiler_4.0.2   tools_4.0.2     
-    ##  [5] digest_0.6.28    evaluate_0.17    lifecycle_1.0.0  tibble_3.1.0    
-    ##  [9] gtable_0.3.0     pkgconfig_2.0.3  rlang_1.0.2      igraph_1.2.6    
-    ## [13] cli_3.2.0        DBI_1.1.1        rstudioapi_0.13  yaml_2.2.1      
-    ## [17] xfun_0.21        fastmap_1.1.0    withr_2.5.0      stringr_1.4.0   
-    ## [21] knitr_1.31       maps_3.3.0       generics_0.1.0   vctrs_0.4.1     
-    ## [25] tidyselect_1.1.0 glue_1.6.2       R6_2.5.0         fansi_0.4.2     
-    ## [29] rmarkdown_2.7    farver_2.1.0     magrittr_2.0.1   scales_1.1.1    
-    ## [33] ellipsis_0.3.2   htmltools_0.5.2  assertthat_0.2.1 colorspace_2.0-0
-    ## [37] labeling_0.4.2   utf8_1.2.1       stringi_1.5.3    munsell_0.5.0   
-    ## [41] crayon_1.4.1
+    ##  [1] highr_0.8         pillar_1.5.1      compiler_4.0.2    prettyunits_1.1.1
+    ##  [5] progress_1.2.2    tools_4.0.2       digest_0.6.28     evaluate_0.17    
+    ##  [9] lifecycle_1.0.0   tibble_3.1.0      gtable_0.3.0      pkgconfig_2.0.3  
+    ## [13] rlang_1.0.2       igraph_1.2.6      cli_3.2.0         DBI_1.1.1        
+    ## [17] rstudioapi_0.13   yaml_2.2.1        xfun_0.21         fastmap_1.1.0    
+    ## [21] withr_2.5.0       stringr_1.4.0     knitr_1.31        hms_1.0.0        
+    ## [25] maps_3.3.0        generics_0.1.0    vctrs_0.4.1       tidyselect_1.1.0 
+    ## [29] glue_1.6.2        R6_2.5.0          fansi_0.4.2       rmarkdown_2.7    
+    ## [33] farver_2.1.0      magrittr_2.0.1    scales_1.1.1      ellipsis_0.3.2   
+    ## [37] htmltools_0.5.2   assertthat_0.2.1  colorspace_2.0-0  labeling_0.4.2   
+    ## [41] utf8_1.2.1        stringi_1.5.3     munsell_0.5.0     crayon_1.4.1
 
 ## References
 
