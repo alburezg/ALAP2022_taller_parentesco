@@ -1,12 +1,12 @@
 ---
-title: "Demografía del parentesco: introducción a temas y método. "
+title: "Laboratorio del taller 'Demografía del parentesco: introducción a temas y métodos'"
 author: "Facilitador: Diego Alburez-Gutierrez (MPIDR);" 
 date: "Pre-evento del X Congreso ALAP; Valparaíso, Chile - 6 Dic 2022"
 output:
   github_document:
     pandoc_args: --webtex
     toc: true
-    toc_depth: 1
+    toc_depth: 2
 bibliography: kinship.bib
 ---
 
@@ -16,9 +16,9 @@ bibliography: kinship.bib
 
 <img src="DemoKin-Logo.png" align="right" width="200" />
 
-## 1. Instalación
+## 1. Instalación de DemoKin
 
-Instale el paquete `DemoKin` [desde GitHub](https://github.com/IvanWilli/DemoKin) (puede tomar ~1 minuto). Hicimos algunos cambios al paquete `DemoKin` antes de este taller. Si había instalado el paquete con anterioridad, desinstálelo y vuelva a instalarlo.
+Instale el paquete `DemoKin` [desde GitHub](https://github.com/IvanWilli/DemoKin) (puede tomar ~1 minuto). 
 
 ```{r, eval=FALSE}
 # remove.packages("DemoKin")
@@ -37,7 +37,7 @@ library(ggplot2)
 library(fields)
 ```
 
-## 2. Descargar datos de Naciones Unidas
+## 2. Cómo descargar datos de Naciones Unidas para este taller
 
 Vamos a usar el API del [World Population Prospects 2022](https://population.un.org/wpp/) para descargar los datos que necesitamos para DemoKin. 
 
@@ -181,7 +181,7 @@ data <- get_UNWPP_inputs(
   )
 ```
 
-## 2. Visualizar los datos
+### 2. Visualizar los datos
 
 Primero, transformamos los datos a matrices, el formato que DemoKin requiere:
 
@@ -202,7 +202,7 @@ gt_asfr <-
 
 ```
 
-### 2.1. `px` matriz; probabilidades de supervicencia por edad (argumento *U* en DemoKin)
+#### 2.1. `px` matriz; probabilidades de supervicencia por edad (argumento *U* en DemoKin)
 
 Así se ven los datos:
 
@@ -222,7 +222,7 @@ image.plot(
   )
 ```
 
-### 2.2. `gt_asfr` matriz; tasas específicas de fecundidad (argumento *f* en DemoKin)
+#### 2.2. `gt_asfr` matriz; tasas específicas de fecundidad (argumento *f* en DemoKin)
 
 Así se ven los datos:
 
@@ -313,9 +313,9 @@ kin_by_age_focal %>%
 
 ```
 
-## 4. Ejemplo: número de parientes en Guatemala (poblaciones estables)
+## 4. Demostración: tamaño de redes familiares en Guatemala (poblaciones estables)
 
-Asumamos una población femenina matrilineal sin migración cuyos miembros experimentan las tasas de mortalidad y fecundidad de Guatemala (reportadas para 2015) a lo largo de su vida.
+Asumamos una población femenina matrilineal sin migración cuyos miembros experimentan las tasas de mortalidad y fecundidad de Guatemala (reportadas para 2015) a lo largo de su vida (es decir, una población estable).
 Preguntamos:
 
 > Cómo podemos caracterizar la estructura familiar (redes de parentesco) de un miembro promedio de esta poblacion (llamada Focal)?
@@ -448,11 +448,24 @@ gt_2015$kin_summary %>%
 
 Por ejemplo, cuando Focal alcanza los 15, 50 y  65 años de edad, habrá perdido un promedio de `r loss2 %>% filter(age_focal %in% c(15, 50, 65)) %>% pull(count) %>% round(1) %>% paste(., collapse = ", ")` parientes.
 
-## 5. Parentesco en América Latina (poblaciones estables)
+## 5. Viñeta y extensiones
 
-Cómo varían las estructuras de parentesco a nivel latinoamericano? Que tan común es experimentar una pérdida familiar, y como se distribuyen estas perdidas familiares a lo largo de la vida?
+Para más detalles sobre `DemoKin`, incluyendo una extensión a poblaciones no estables, y modelos multi-state, ver `vignette("Reference", package = "DemoKin")`. Si la viñeta no carga, intente instalar el paquete así: `devtools::install_github("IvanWilli/DemoKin", build_vignettes = TRUE)`.
 
-Primero descargamos los datos necesarios:
+Para una descripción detallada de los modelos de parentesco, ver:
+
+- poblaciones estables [@caswell_formal_2019],
+- modelos multistate [@caswell_formal_2020],
+- poblaciones no estables [@caswell_formal_2021], and
+- modelos con dos sexos [@caswell_formal_2022].
+
+# Ejercicios
+
+## Ejercicio 1: Parentesco en América Latina (poblaciones estables)
+
+Cómo varían las estructuras de parentesco en varios paises de América Latina? Que tan común es experimentar una pérdida familiar, y como se distribuyen estas pérdidas familiares a lo largo de la vida?
+
+Primero descargamos los datos necesarios usando el API de Naciones Unidas:
 
 ```{r}
 # pick countries
@@ -533,7 +546,7 @@ exact_death %>%
   theme(legend.position = "bottom")
 ```
 
-El numero de perdidas familiares acumuldas:
+Para visualiar el número acumulado de pérdidas familiares:
 
 ```{r}
 cum_death <-
@@ -590,7 +603,7 @@ exact_line %>%
 
 ```
 
-## 6. Abuelos a traves del tiempo (poblaciones no estables)
+## Ejercicio 2: Abuelos en poblaciones no estables
 
 ```{r}
 
@@ -609,7 +622,7 @@ data <- get_UNWPP_inputs(
   )
 ```
 
-Explorar cambios a traves del tiempo en una perspectiva de periodo. En este ejemplo, vamos a usar un modelo que no asume estabilidad de tasas demograficas. 
+Explorar cambios a traves del tiempo en una perspectiva de periodo. En este ejemplo, vamos a usar un modelo que no asume estabilidad de tasas demograficas. Los modelos "dinámicos" (es decir, no estables) tardan más tiempo en correr. 
 
 ```{r}
 
@@ -674,22 +687,10 @@ period_kin %>%
   theme(legend.position = "bottom") 
 ```
 
-## 7. Viñeta y extensiones
-
-Para más detalles sobre `DemoKin`, incluyendo una extensión a poblaciones no estables, y modelos multi-state, ver `vignette("Reference", package = "DemoKin")`. Si la viñeta no carga, intente instalar el paquete así: `devtools::install_github("IvanWilli/DemoKin", build_vignettes = TRUE)`.
-
-Para una descripción detallada de los modelos de parentesco, ver:
-
-- poblaciones estables [@caswell_formal_2019],
-- modelos multistate [@caswell_formal_2020],
-- poblaciones no estables [@caswell_formal_2021], and
-- modelos con dos sexos [@caswell_formal_2022].
-
-## 8. Ejercicios
 
 **Para todos los ejercicios, asuma una población estable femenina con las tasas de 2010 en Argentina.**
 
-### Ejercicio 1. Parientes vivos y muertos
+## Ejercicio 3. Parientes vivos y muertos
 
 Use `DemoKin` (asumiendo una población estable femenina con las tasas argentina de 2010) para explorar el número de parientes vivos y muertos de Focal (un miembro promedio de la población). 
 
@@ -705,7 +706,7 @@ Use `DemoKin` (asumiendo una población estable femenina con las tasas argentina
 # Escriba su código aquí
 ```
 
-### Ejercicio 2. Edad promedio de los parientes
+## Ejercicio 4. Edad promedio de los parientes
 
 La función `DemoKin::kin` provee información sobre la edad promedio de los parientes de Focal (en las columnas `kin_summary$mean_age` y `kin_summary$$sd_age`). Por ejemplo, esta es la edad promedio de las hermanas de Focal: 
 
@@ -739,9 +740,9 @@ Segundo, la edad promedio de todas las hermanas sin importar su paridad:
 # Escriba su código aquí
 ```
 
-### Ejercicio 3. Madres
+## Ejercicio 5. Madres
 
-What is the probability that Focal (an average Swedish woman) has a living mother over Focal's live? 
+Cuál es la probabilidad de que Focal (una mujer Argentina promedio) tenga una madre con vida, a lo largo de la vida de Focal? 
 
 **Instrucciones**
 
@@ -753,7 +754,7 @@ Use DemoKin para obtener $M_1(a)$, la probabilidad de que Focal tenga una madre 
 # Escriba su código aquí
 ```
 
-### Ejercicio 4. Generación Sandwich
+## Ejercicio 6. Generación Sandwich
 
 La 'Generación Sandwich' se refiere a personas que se encuentran 'ensanguchadas' entre padres mayores e hijos jóvenes que requiren cuidado y atención. Asumimos que esto representa una doble carga de cuidado hacia miembros de ambas generaciones. En demografía, este es un proceso intergeneracional que depende de la posición genealógica de un individuo respecto a la generación superior e inferior. 
 

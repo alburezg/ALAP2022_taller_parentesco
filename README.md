@@ -1,10 +1,33 @@
-Demografía del parentesco: introducción a temas y método.
+Laboratorio del taller ‘Demografía del parentesco: introducción a temas
+y métodos’
 ================
 Facilitador: Diego Alburez-Gutierrez (MPIDR);
 Pre-evento del X Congreso ALAP; Valparaíso, Chile - 6 Dic 2022
 
   - [Segunda parte: modelos de parentesco en
     R](#segunda-parte-modelos-de-parentesco-en-r)
+      - [1. Instalación de DemoKin](#1-instalación-de-demokin)
+      - [2. Cómo descargar datos de Naciones Unidas para este
+        taller](#2-cómo-descargar-datos-de-naciones-unidas-para-este-taller)
+      - [3. La función `kin()`](#3-la-función-kin)
+      - [4. Demostración: tamaño de redes familiares en Guatemala
+        (poblaciones
+        estables)](#4-demostración-tamaño-de-redes-familiares-en-guatemala-poblaciones-estables)
+      - [5. Viñeta y extensiones](#5-viñeta-y-extensiones)
+  - [Ejercicios](#ejercicios)
+      - [Ejercicio 1: Parentesco en América Latina (poblaciones
+        estables)](#ejercicio-1-parentesco-en-américa-latina-poblaciones-estables)
+      - [Ejercicio 2: Abuelos en poblaciones no
+        estables](#ejercicio-2-abuelos-en-poblaciones-no-estables)
+      - [Ejercicio 3. Parientes vivos y
+        muertos](#ejercicio-3-parientes-vivos-y-muertos)
+      - [Ejercicio 4. Edad promedio de los
+        parientes](#ejercicio-4-edad-promedio-de-los-parientes)
+      - [Ejercicio 5. Madres](#ejercicio-5-madres)
+      - [Ejercicio 6. Generación
+        Sandwich](#ejercicio-6-generación-sandwich)
+      - [Session info](#session-info)
+      - [References](#references)
 
 # Segunda parte: modelos de parentesco en R
 
@@ -13,13 +36,10 @@ Pre-evento del X Congreso ALAP; Valparaíso, Chile - 6 Dic 2022
 
 <img src="DemoKin-Logo.png" align="right" width="200" />
 
-## 1\. Instalación
+## 1\. Instalación de DemoKin
 
 Instale el paquete `DemoKin` [desde
 GitHub](https://github.com/IvanWilli/DemoKin) (puede tomar \~1 minuto).
-Hicimos algunos cambios al paquete `DemoKin` antes de este taller. Si
-había instalado el paquete con anterioridad, desinstálelo y vuelva a
-instalarlo.
 
 ``` r
 # remove.packages("DemoKin")
@@ -38,7 +58,7 @@ library(ggplot2)
 library(fields)
 ```
 
-## 2\. Descargar datos de Naciones Unidas
+## 2\. Cómo descargar datos de Naciones Unidas para este taller
 
 Vamos a usar el API del [World Population
 Prospects 2022](https://population.un.org/wpp/) para descargar los datos
@@ -190,7 +210,7 @@ data <- get_UNWPP_inputs(
     ## [1] "Getting mortality data for Guatemala"
     ## [1] "Getting fertility data for Guatemala"
 
-## 2\. Visualizar los datos
+### 2\. Visualizar los datos
 
 Primero, transformamos los datos a matrices, el formato que DemoKin
 requiere:
@@ -211,7 +231,7 @@ gt_asfr <-
   as.matrix()
 ```
 
-### 2.1. `px` matriz; probabilidades de supervicencia por edad (argumento *U* en DemoKin)
+#### 2.1. `px` matriz; probabilidades de supervicencia por edad (argumento *U* en DemoKin)
 
 Así se ven los datos:
 
@@ -239,7 +259,7 @@ image.plot(
 
 ![](README_files/figure-gfm/unnamed-chunk-8-1.png)<!-- -->
 
-### 2.2. `gt_asfr` matriz; tasas específicas de fecundidad (argumento *f* en DemoKin)
+#### 2.2. `gt_asfr` matriz; tasas específicas de fecundidad (argumento *f* en DemoKin)
 
 Así se ven los datos:
 
@@ -399,11 +419,12 @@ kin_by_age_focal %>%
 
     ## [1] TRUE
 
-## 4\. Ejemplo: número de parientes en Guatemala (poblaciones estables)
+## 4\. Demostración: tamaño de redes familiares en Guatemala (poblaciones estables)
 
 Asumamos una población femenina matrilineal sin migración cuyos miembros
 experimentan las tasas de mortalidad y fecundidad de Guatemala
-(reportadas para 2015) a lo largo de su vida. Preguntamos:
+(reportadas para 2015) a lo largo de su vida (es decir, una población
+estable). Preguntamos:
 
 > Cómo podemos caracterizar la estructura familiar (redes de parentesco)
 > de un miembro promedio de esta poblacion (llamada Focal)?
@@ -567,13 +588,31 @@ gt_2015$kin_summary %>%
 Por ejemplo, cuando Focal alcanza los 15, 50 y 65 años de edad, habrá
 perdido un promedio de 0.6, 2.8, 4.2 parientes.
 
-## 5\. Parentesco en América Latina (poblaciones estables)
+## 5\. Viñeta y extensiones
 
-Cómo varían las estructuras de parentesco a nivel latinoamericano? Que
-tan común es experimentar una pérdida familiar, y como se distribuyen
-estas perdidas familiares a lo largo de la vida?
+Para más detalles sobre `DemoKin`, incluyendo una extensión a
+poblaciones no estables, y modelos multi-state, ver
+`vignette("Reference", package = "DemoKin")`. Si la viñeta no carga,
+intente instalar el paquete así:
+`devtools::install_github("IvanWilli/DemoKin", build_vignettes = TRUE)`.
 
-Primero descargamos los datos necesarios:
+Para una descripción detallada de los modelos de parentesco, ver:
+
+  - poblaciones estables (Caswell 2019),
+  - modelos multistate (Caswell 2020),
+  - poblaciones no estables (Caswell and Song 2021), and
+  - modelos con dos sexos (Caswell 2022).
+
+# Ejercicios
+
+## Ejercicio 1: Parentesco en América Latina (poblaciones estables)
+
+Cómo varían las estructuras de parentesco en varios paises de América
+Latina? Que tan común es experimentar una pérdida familiar, y como se
+distribuyen estas pérdidas familiares a lo largo de la vida?
+
+Primero descargamos los datos necesarios usando el API de Naciones
+Unidas:
 
 ``` r
 # pick countries
@@ -685,7 +724,7 @@ exact_death %>%
 
 ![](README_files/figure-gfm/unnamed-chunk-27-1.png)<!-- -->
 
-El numero de perdidas familiares acumuldas:
+Para visualiar el número acumulado de pérdidas familiares:
 
 ``` r
 cum_death <-
@@ -764,7 +803,7 @@ exact_line %>%
 
 ![](README_files/figure-gfm/unnamed-chunk-29-1.png)<!-- -->
 
-## 6\. Abuelos a traves del tiempo (poblaciones no estables)
+## Ejercicio 2: Abuelos en poblaciones no estables
 
 ``` r
 # pick countries
@@ -788,7 +827,8 @@ data <- get_UNWPP_inputs(
 
 Explorar cambios a traves del tiempo en una perspectiva de periodo. En
 este ejemplo, vamos a usar un modelo que no asume estabilidad de tasas
-demograficas.
+demograficas. Los modelos “dinámicos” (es decir, no estables) tardan más
+tiempo en correr.
 
 ``` r
 # period data for decennial years
@@ -887,27 +927,10 @@ period_kin %>%
 
 ![](README_files/figure-gfm/unnamed-chunk-33-1.png)<!-- -->
 
-## 7\. Viñeta y extensiones
-
-Para más detalles sobre `DemoKin`, incluyendo una extensión a
-poblaciones no estables, y modelos multi-state, ver
-`vignette("Reference", package = "DemoKin")`. Si la viñeta no carga,
-intente instalar el paquete así:
-`devtools::install_github("IvanWilli/DemoKin", build_vignettes = TRUE)`.
-
-Para una descripción detallada de los modelos de parentesco, ver:
-
-  - poblaciones estables (Caswell 2019),
-  - modelos multistate (Caswell 2020),
-  - poblaciones no estables (Caswell and Song 2021), and
-  - modelos con dos sexos (Caswell 2022).
-
-## 8\. Ejercicios
-
 **Para todos los ejercicios, asuma una población estable femenina con
 las tasas de 2010 en Argentina.**
 
-### Ejercicio 1. Parientes vivos y muertos
+## Ejercicio 3. Parientes vivos y muertos
 
 Use `DemoKin` (asumiendo una población estable femenina con las tasas
 argentina de 2010) para explorar el número de parientes vivos y muertos
@@ -926,7 +949,7 @@ total)?
 # Escriba su código aquí
 ```
 
-### Ejercicio 2. Edad promedio de los parientes
+## Ejercicio 4. Edad promedio de los parientes
 
 La función `DemoKin::kin` provee información sobre la edad promedio de
 los parientes de Focal (en las columnas `kin_summary$mean_age` y
@@ -969,10 +992,10 @@ Segundo, la edad promedio de todas las hermanas sin importar su paridad:
 # Escriba su código aquí
 ```
 
-### Ejercicio 3. Madres
+## Ejercicio 5. Madres
 
-What is the probability that Focal (an average Swedish woman) has a
-living mother over Focal’s live?
+Cuál es la probabilidad de que Focal (una mujer Argentina promedio)
+tenga una madre con vida, a lo largo de la vida de Focal?
 
 **Instrucciones**
 
@@ -995,7 +1018,7 @@ hasta el cumpleaños 70 de Focal?
 # Escriba su código aquí
 ```
 
-### Ejercicio 4. Generación Sandwich
+## Ejercicio 6. Generación Sandwich
 
 La ‘Generación Sandwich’ se refiere a personas que se encuentran
 ‘ensanguchadas’ entre padres mayores e hijos jóvenes que requiren
