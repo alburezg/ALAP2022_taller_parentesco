@@ -1,5 +1,5 @@
 ---
-title: "Laboratorio del taller 'Demografía del parentesco: introducción a temas y métodos'"
+title: "Demografía del parentesco: introducción a temas y métodos"
 author: "Facilitador: Diego Alburez-Gutierrez (MPIDR);" 
 date: "Pre-evento del X Congreso ALAP; Valparaíso, Chile - 6 Dic 2022"
 output:
@@ -10,9 +10,11 @@ output:
 bibliography: kinship.bib
 ---
 
-# Segunda parte: modelos de parentesco en R 
+# Primera parte: Introducción a la Demografía del Parentesco
 
-> Esta es la segunda parte del taller. Las diapositivas de la primera parte están disponibles [aquí](diapositivas/).
+Las diapositivas para la primera parte están disponibles [aquí](diapositivas/).
+
+# Segunda parte: modelos de parentesco en R 
 
 <img src="DemoKin-Logo.png" align="right" width="200" />
 

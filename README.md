@@ -1,9 +1,10 @@
-Laboratorio del taller ‘Demografía del parentesco: introducción a temas
-y métodos’
+Demografía del parentesco: introducción a temas y métodos
 ================
 Facilitador: Diego Alburez-Gutierrez (MPIDR);
 Pre-evento del X Congreso ALAP; Valparaíso, Chile - 6 Dic 2022
 
+  - [Primera parte: Introducción a la Demografía del
+    Parentesco](#primera-parte-introducción-a-la-demografía-del-parentesco)
   - [Segunda parte: modelos de parentesco en
     R](#segunda-parte-modelos-de-parentesco-en-r)
       - [1. Instalación de DemoKin](#1-instalación-de-demokin)
@@ -29,10 +30,12 @@ Pre-evento del X Congreso ALAP; Valparaíso, Chile - 6 Dic 2022
       - [Session info](#session-info)
       - [References](#references)
 
-# Segunda parte: modelos de parentesco en R
+# Primera parte: Introducción a la Demografía del Parentesco
 
-> Esta es la segunda parte del taller. Las diaposiivas de la primera
-> parte están disponibles [aquí](diapositivas/).
+Las diapositivas para la primera parte están disponibles
+[aquí](diapositivas/).
+
+# Segunda parte: modelos de parentesco en R
 
 <img src="DemoKin-Logo.png" align="right" width="200" />
 
