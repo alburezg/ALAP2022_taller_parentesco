@@ -1,31 +1,24 @@
-Demografía del parentesco: introducción a temas y método
+Demografía del parentesco: introducción a temas y método.
 ================
 Facilitador: Diego Alburez-Gutierrez (MPIDR);
 Pre-evento del X Congreso ALAP; Valparaíso, Chile - 6 Dic 2022
 
-  - [1. Instalación](#1-instalación)
-  - [2. Descargar datos de Naciones
-    Unidas](#2-descargar-datos-de-naciones-unidas)
-  - [2. Visualizar los datos](#2-visualizar-los-datos)
-  - [3. La función `kin()`](#3-la-función-kin)
-  - [4. Ejemplo: número de parientes en Guatemala (poblaciones
-    estables)](#4-ejemplo-número-de-parientes-en-guatemala-poblaciones-estables)
-  - [5. Parentesco en América Latina (poblaciones
-    estables)](#5-parentesco-en-américa-latina-poblaciones-estables)
-  - [6. Abuelos a traves del tiempo (poblaciones no
-    estables)](#6-abuelos-a-traves-del-tiempo-poblaciones-no-estables)
-  - [7. Viñeta y extensiones](#7-viñeta-y-extensiones)
-  - [8. Ejercicios](#8-ejercicios)
-  - [Session info](#session-info)
+  - [Segunda parte: modelos de parentesco en
+    R](#segunda-parte-modelos-de-parentesco-en-r)
+
+# Segunda parte: modelos de parentesco en R
+
+> Esta es la segunda parte del taller. Las diaposiivas de la primera
+> parte están disponibles [aquí](diapositivas/).
 
 <img src="DemoKin-Logo.png" align="right" width="200" />
 
-# 1\. Instalación
+## 1\. Instalación
 
 Instale el paquete `DemoKin` [desde
 GitHub](https://github.com/IvanWilli/DemoKin) (puede tomar \~1 minuto).
 Hicimos algunos cambios al paquete `DemoKin` antes de este taller. Si
-había instalado el paquete con anterioridad, desinstalelo y vuelva a
+había instalado el paquete con anterioridad, desinstálelo y vuelva a
 instalarlo.
 
 ``` r
@@ -45,7 +38,7 @@ library(ggplot2)
 library(fields)
 ```
 
-# 2\. Descargar datos de Naciones Unidas
+## 2\. Descargar datos de Naciones Unidas
 
 Vamos a usar el API del [World Population
 Prospects 2022](https://population.un.org/wpp/) para descargar los datos
@@ -131,22 +124,9 @@ get_UNWPP_inputs <- function(countries, my_startyr, my_endyr, variant = "Median"
 }
 ```
 
-Otras funciones utiles que usaremos ma adelante:
+Otras funciones utiles que usaremos más adelante:
 
 ``` r
-# A function to apply GKP factors to a female-only population to approximate kin counts for a two-sex population by multiplying daughters by 2, granddaughters by 4, etc. 
-approx_two_sex <- function(df){
-  print("Note: approx_two_sex only keeps columns with data on kin counts!")
-      factors <- c("coa" = 8, "cya" = 8, "d" = 2, "gd" = 4, "ggd" = 8, "ggm" = 8, "gm" = 4, "m" = 2, "nos" = 4, "nys" = 4, "oa" = 4, "ya" = 4, "os" = 2, "ys" = 2)
-
-df <- as.data.frame(df)
-factors_vec <- factors[df$kin]
-df$count_living <- df$count_living*factors_vec
-df$count_dead <- df$count_dead*factors_vec
-drop <- c("mean_age", "sd_age", "count_cum_dead", "mean_age_lost")
-df[,!(names(df) %in% drop)]
-}
-
 # A small hack on the existing rename_kin function to make sure it keeps all columns
 rename_kin2 <- function (df, consolidate_column = "no") {
   stopifnot(`Argument 'consolidate_column' should be 'no' or a valid column name` = consolidate_column %in% 
@@ -186,9 +166,9 @@ rename_kin2 <- function (df, consolidate_column = "no") {
 }
 ```
 
-Ahora, usemos esta función para descargar los datos que necesitamos para
-correr nuestro modelos de parentesco. Para este ejemplo, queremos datos
-de países latinoamericanos:
+Ahora, usemos la función `get_UNWPP_inputs` para descargar los datos que
+necesitamos para nuestro modelos de parentesco. Para este ejemplo,
+usemos datos de Guatemala:
 
 ``` r
 # pick countries
@@ -210,10 +190,10 @@ data <- get_UNWPP_inputs(
     ## [1] "Getting mortality data for Guatemala"
     ## [1] "Getting fertility data for Guatemala"
 
-# 2\. Visualizar los datos
+## 2\. Visualizar los datos
 
-Tomemos los datos de Guatemala como ejemplo. Primero, los transformamos
-a matrices, que es el formato que DemoKin requiere:
+Primero, transformamos los datos a matrices, el formato que DemoKin
+requiere:
 
 ``` r
 gt_px <- 
@@ -289,13 +269,14 @@ image.plot(
 
 ![](README_files/figure-gfm/unnamed-chunk-10-1.png)<!-- -->
 
-# 3\. La función `kin()`
+## 3\. La función `kin()`
 
-`DemoKin` puede usarse para estimar el número de parientes de Focal y su
-distribución etaria acorde a un número de premisas. Esto incluye
-parientes vivos y muertos. La función `DemoKin::kin()` se encarga de
-implemetar los modelos de parentesco. Este es un ejemplo, en este caso,
-asumiendo estabilidad demográfica:
+`DemoKin` permite calcular el número de parientes de Focal y la
+distribución etaria de estos parientes (bajo distintas premisas). Esto
+incluye parientes vivos y muertos. La función `DemoKin::kin()` se
+encarga de implemetar los modelos de parentesco. Este es un ejemplo, en
+este caso asumiendo estabilidad demográfica (ver el parámetro
+`time_invariant = TRUE`):
 
 ``` r
 # First, get vectors for a given year
@@ -305,19 +286,19 @@ gt_asfr_2015 <- gt_asfr[,"2015"]
 gt_2015 <- kin(U = gt_surv_2015, f = gt_asfr_2015, time_invariant = TRUE)
 ```
 
-## 3.1. Argumentos
+### 3.1. Argumentos de la función
 
-  - **U** numérico Un vector o matriz con probabilidades de
+  - **U** numérico. Un vector o matriz con probabilidades de
     supervivencia, las edades son files y las columnas años (si es
     matriz).
-  - **f** numérico. Igual que U pero para tasas de fecundidad
-  - **time\_invariant** lógico. Asumir tasas estables. Default TRUE.
-  - **output\_kin** caracter. tipo de pariente que estimar: “m” para
+  - **f** numérico. Igual que `U` pero para tasas de fecundidad
+  - **time\_invariant** lógico. Asumir tasas estables? Default TRUE.
+  - **output\_kin** caracter. Tipo de pariente a estimar: “m” para
     madre, “d” para hija, …
 
-## 3.2. Tipos de parientes
+### 3.2. Tipos de parientes
 
-El arugmento `output_kin` usa códigos únicos para identificar tipos de
+El argumento `output_kin` usa códigos únicos para diferenciar tipos de
 parientes. Note que los códigos en `DemoKin` son distintos a los usados
 por Caswell (2019). Esta es la equivalencia de los códigos:
 
@@ -341,7 +322,7 @@ demokin_codes()
     ## 13      os       m               Older sister
     ## 14      ys       n             Younger sister
 
-## 3.4. Valor
+### 3.4. Valor
 
 `DemoKin::kin()` produce una lista con dos data frames: `kin_full` y
 `kin_summary`.
@@ -371,7 +352,7 @@ str(gt_2015)
     ##   ..$ count_cum_dead: num [1:1414] 0 0 0 0 0 0 0 0 0 0 ...
     ##   ..$ mean_age_lost : num [1:1414] NaN NaN NaN NaN NaN NaN NaN NaN NaN NaN ...
 
-### `kin_full`
+#### `kin_full`
 
 Esta data frame contiene el número esperado de parientes por tipo de
 pariente, año/cohorte, edad de Focal y edad del pariente.
@@ -390,10 +371,10 @@ head(gt_2015$kin_full)
     ## 5 NA    NA             4 d           0      0     0
     ## 6 NA    NA             5 d           0      0     0
 
-### `kin_summary`
+#### `kin_summary`
 
 Esta es una data frame que resume el contenido de `kin_full`. Para
-producirla, sumamos los valores a traves de todas las edades de los
+producirla, sumamos los valores a lo largo de todas las edades de los
 parientes. Esto produce una data frame con el número esperado de
 parientes por año/cohorte y edad de Focal (pero *no* por edad del
 pariente). Así derivamos `kin_summary`:
@@ -418,16 +399,16 @@ kin_by_age_focal %>%
 
     ## [1] TRUE
 
-# 4\. Ejemplo: número de parientes en Guatemala (poblaciones estables)
+## 4\. Ejemplo: número de parientes en Guatemala (poblaciones estables)
 
-Seguimos a Caswell (2019), al asumir una población femenina matrilineal
-cerradaen la cual todas experimentan las tasas de mortalidad y
-fecundidad en Argentina a lo largo de su vida. Preguntamos:
+Asumamos una población femenina matrilineal sin migración cuyos miembros
+experimentan las tasas de mortalidad y fecundidad de Guatemala
+(reportadas para 2015) a lo largo de su vida. Preguntamos:
 
-> Cömo podemos caracterizar la estructura familiar (redes de parentesco)
+> Cómo podemos caracterizar la estructura familiar (redes de parentesco)
 > de un miembro promedio de esta poblacion (llamada Focal)?
 
-Para este ejercicio usaremos los datos de Argentina que hemos venido
+Para este ejercicio usaremos los datos de Guatemala que hemos venido
 trabajando.
 
 ``` r
@@ -438,7 +419,7 @@ gt_asfr_2015 <- gt_asfr[,"2015"]
 gt_2015 <- kin(U = gt_surv_2015, f = gt_asfr_2015, time_invariant = TRUE)
 ```
 
-## 4.1. Diagrama de parentesco al estilo ‘Keyfitz’
+### 4.1. Diagrama de parentesco al estilo ‘Keyfitz’
 
 Usamos la función `plot_diagram` para visualizar el número implícito de
 parientes de Focal cuando ella tiene 35 años (Keyfitz and Caswell 2005):
@@ -452,12 +433,12 @@ gt_2015$kin_summary %>%
 
 ![](README_files/figure-gfm/unnamed-chunk-17-1.png)<!-- -->
 
-## 4.2. Parentela viva
+### 4.2. Parentela viva
 
 Ahora podemos mostrar la variación en el número esperado de hijas,
 hermanas, primas, etc. de Focal a lo largo de su vida. Usamos la función
 `DemoKin::rename_kin()` para mostrar los nombres de cada tipo de
-pariente.
+pariente (en lugar de los códigos de parentesco).
 
 ``` r
 gt_2015$kin_summary %>%
@@ -473,7 +454,7 @@ gt_2015$kin_summary %>%
 ![](README_files/figure-gfm/unnamed-chunk-18-1.png)<!-- -->
 
 Podemos mostrar todo en una gráfica para visualizar el tamaño absoluto
-de las redes familiares de Focal:
+de las redes familiares femeninas de Focal:
 
 ``` r
 counts <- 
@@ -496,7 +477,7 @@ gt_2015$kin_summary %>%
 
 ![](README_files/figure-gfm/unnamed-chunk-19-1.png)<!-- -->
 
-## 4.3. Distribución etaria de la parentela con vida
+### 4.3. Distribución etaria de la parentela con vida
 
 Qué edad tienen los parientes de Focal? Usamos la data frame `kin_full`
 para mostrar la distribución etaria de los parientes de Focal a lo largo
@@ -517,15 +498,15 @@ gt_2015$kin_full %>%
 
 ![](README_files/figure-gfm/unnamed-chunk-20-1.png)<!-- -->
 
-## 4.4. Parientes muertos
+### 4.4. Pérdidas familiares
 
 Nos hemos enfocados en parentela vivo, pero qué hay de los pariente que
-han muerto ya? La función `kin` tmabién incluye información sobre
+han muerto ya? La función `kin` también incluye información sobre
 muertes de parientes experimentadas por Focal.
 
-Exploremos primero el número de muertes de parientes que Focal
-experimenta en cada edad de su vida. Es decir, el número de parientes
-cuya muerte es sufrida por Focal cuando Focal tiene 0,1,2,… años.
+Exploremos primero el número de pérdidas familiares que Focal
+experimenta a cada edad de su vida. Es decir, el número de parientes
+cuya pérdida es sufrida por Focal cuando Focal tiene 0,1,2,… años.
 
 ``` r
 loss1 <- 
@@ -554,8 +535,8 @@ gt_2015$kin_summary %>%
 
 ![](README_files/figure-gfm/unnamed-chunk-21-1.png)<!-- -->
 
-La suma de estos valores indica el número acumulado de muertes de
-parientes experimentado por Focal cuando ella tiene 0,1,2,… años.
+La suma de estos valores equivale al número acumulado de pérdidas
+familiares experimentado por Focal cuando ella tiene 0,1,2,… años.
 
 ``` r
 loss2 <- 
@@ -586,11 +567,11 @@ gt_2015$kin_summary %>%
 Por ejemplo, cuando Focal alcanza los 15, 50 y 65 años de edad, habrá
 perdido un promedio de 0.6, 2.8, 4.2 parientes.
 
-# 5\. Parentesco en América Latina (poblaciones estables)
+## 5\. Parentesco en América Latina (poblaciones estables)
 
 Cómo varían las estructuras de parentesco a nivel latinoamericano? Que
-tan comun es experimentar una muerte en la familia, y como se
-distribuyen estas perdidas familiares a lo largo de la vida?
+tan común es experimentar una pérdida familiar, y como se distribuyen
+estas perdidas familiares a lo largo de la vida?
 
 Primero descargamos los datos necesarios:
 
@@ -633,11 +614,27 @@ period_kin <-
     ## [1] "Guatemala 2022"
     ## [1] "Haiti 2022"
 
-Primero, definimos una función que nos permite aproximar parientes sin
-importar el sexo (usando “factores GKP”):
+Primero, definimos una función que nos permite aproximar parientes
+masculinos y femeninos (usando “factores GKP”):
 
-Ahora podemos visualizar algunos patrones elementales de la estructura
-de parentesco en estos países, tales como la estructura familiar.
+``` r
+# A function to apply GKP factors to a female-only population to approximate kin counts for a two-sex population by multiplying daughters by 2, granddaughters by 4, etc. 
+approx_two_sex <- function(df){
+      factors <- c("coa" = 8, "cya" = 8, "d" = 2, "gd" = 4, "ggd" = 8, "ggm" = 8, "gm" = 4, "m" = 2, "nos" = 4, "nys" = 4, "oa" = 4, "ya" = 4, "os" = 2, "ys" = 2)
+
+df <- as.data.frame(df)
+factors_vec <- factors[df$kin]
+df$count_living <- df$count_living*factors_vec
+df$count_dead <- df$count_dead*factors_vec
+drop <- c("mean_age", "sd_age", "count_cum_dead", "mean_age_lost")
+print("Note: approx_two_sex only keeps columns with data on kin counts!")
+print(paste0("Dropping columns: ", paste(drop, collapse = ", ")))
+df[,!(names(df) %in% drop)]
+}
+```
+
+Ahora podemos visualizar algunos la estructura de parentesco en estos
+países. Comenzamos con la estructura familiar:
 
 ``` r
 period_kin %>% 
@@ -653,14 +650,15 @@ period_kin %>%
 ```
 
     ## [1] "Note: approx_two_sex only keeps columns with data on kin counts!"
+    ## [1] "Dropping columns: mean_age, sd_age, count_cum_dead, mean_age_lost"
 
     ## `summarise()` has grouped output by 'age_focal', 'kin'. You can override using
     ## the `.groups` argument.
 
-![](README_files/figure-gfm/unnamed-chunk-25-1.png)<!-- -->
+![](README_files/figure-gfm/unnamed-chunk-26-1.png)<!-- -->
 
-Cuantas muertes de familiares experimenta una persona en la edad exacta
-‘x’ en distintos paises de LATAM?
+Cuántas pérdidas familiares experimenta una persona a la edad exacta ‘x’
+en distintos paises de LATAM?
 
 ``` r
 exact_death <- 
@@ -670,6 +668,7 @@ exact_death <-
 ```
 
     ## [1] "Note: approx_two_sex only keeps columns with data on kin counts!"
+    ## [1] "Dropping columns: mean_age, sd_age, count_cum_dead, mean_age_lost"
 
     ## `summarise()` has grouped output by 'age_focal', 'kin'. You can override using
     ## the `.groups` argument.
@@ -684,7 +683,7 @@ exact_death %>%
   theme(legend.position = "bottom")
 ```
 
-![](README_files/figure-gfm/unnamed-chunk-26-1.png)<!-- -->
+![](README_files/figure-gfm/unnamed-chunk-27-1.png)<!-- -->
 
 El numero de perdidas familiares acumuldas:
 
@@ -701,6 +700,7 @@ cum_death <-
 ```
 
     ## [1] "Note: approx_two_sex only keeps columns with data on kin counts!"
+    ## [1] "Dropping columns: mean_age, sd_age, count_cum_dead, mean_age_lost"
 
     ## `summarise()` has grouped output by 'age_focal', 'kin'. You can override using
     ## the `.groups` argument.
@@ -715,7 +715,7 @@ cum_death %>%
   theme(legend.position = "bottom")
 ```
 
-![](README_files/figure-gfm/unnamed-chunk-27-1.png)<!-- -->
+![](README_files/figure-gfm/unnamed-chunk-28-1.png)<!-- -->
 
 Finalmente, graficamos los resultados sin diferenciar el numero de
 parientes y comparamos los resultados para cada pais en una misma
@@ -762,9 +762,9 @@ exact_line %>%
   theme(legend.position = "bottom")
 ```
 
-![](README_files/figure-gfm/unnamed-chunk-28-1.png)<!-- -->
+![](README_files/figure-gfm/unnamed-chunk-29-1.png)<!-- -->
 
-# 6\. Abuelos a traves del tiempo (poblaciones no estables)
+## 6\. Abuelos a traves del tiempo (poblaciones no estables)
 
 ``` r
 # pick countries
@@ -786,8 +786,9 @@ data <- get_UNWPP_inputs(
     ## [1] "Getting mortality data for Argentina, Haiti, Chile, Guatemala"
     ## [1] "Getting fertility data for Argentina, Haiti, Chile, Guatemala"
 
-Explorar cambios a traves del tiempo en una perspectiva de periodo.
-Vamos a usar un model que no asume estabilidad de tasas demograficas.
+Explorar cambios a traves del tiempo en una perspectiva de periodo. En
+este ejemplo, vamos a usar un modelo que no asume estabilidad de tasas
+demograficas.
 
 ``` r
 # period data for decennial years
@@ -845,27 +846,28 @@ period_kin <-
 ```
 
     ## [1] "Note: approx_two_sex only keeps columns with data on kin counts!"
+    ## [1] "Dropping columns: mean_age, sd_age, count_cum_dead, mean_age_lost"
 
 Ahora podemos graficar cambio a travel del tiempo, por ejemplo, en el
-numero promedio de abuelos para ninos de 5 anios de edad:
+numero promedio de abuelos que tiene un niño recién nacido:
 
 ``` r
 period_kin %>% 
-  filter(age_focal %in% c(5)) %>% 
+  filter(age_focal %in% 0) %>% 
   select(Location, kin, year, age_focal, count_living) %>% 
   ggplot(aes(year,count_living,color=Location, shape = Location)) +
   geom_line(size = 1) + 
   geom_point(size = 4) +
-  labs(x = "Año", y = "Número de abuelos vivos para un niño de 5 años") +
+  labs(x = "Año", y = "Número de abuelos vivos al nacer") +
   theme_bw() +
   theme(legend.position = "bottom") 
 ```
 
-![](README_files/figure-gfm/unnamed-chunk-31-1.png)<!-- -->
+![](README_files/figure-gfm/unnamed-chunk-32-1.png)<!-- -->
 
-Finalmente, que tan comun es perder a un abuelo y a que edad se
-experimenta la perdida de un abuelo en los distintos paises? Como ha
-cambiado esto a traves del tiempo?
+Finalmente, que tan común es perder a un abuelo y a qué edad se
+experimenta la pérdida de un abuelo en los distintos paises? Cómo ha
+cambiado esto a través del tiempo?
 
 ``` r
 period_kin %>% 
@@ -883,9 +885,9 @@ period_kin %>%
   theme(legend.position = "bottom") 
 ```
 
-![](README_files/figure-gfm/unnamed-chunk-32-1.png)<!-- -->
+![](README_files/figure-gfm/unnamed-chunk-33-1.png)<!-- -->
 
-# 7\. Viñeta y extensiones
+## 7\. Viñeta y extensiones
 
 Para más detalles sobre `DemoKin`, incluyendo una extensión a
 poblaciones no estables, y modelos multi-state, ver
@@ -900,12 +902,12 @@ Para una descripción detallada de los modelos de parentesco, ver:
   - poblaciones no estables (Caswell and Song 2021), and
   - modelos con dos sexos (Caswell 2022).
 
-# 8\. Ejercicios
+## 8\. Ejercicios
 
 **Para todos los ejercicios, asuma una población estable femenina con
 las tasas de 2010 en Argentina.**
 
-## Ejercicio 1. Parientes vivos y muertos
+### Ejercicio 1. Parientes vivos y muertos
 
 Use `DemoKin` (asumiendo una población estable femenina con las tasas
 argentina de 2010) para explorar el número de parientes vivos y muertos
@@ -924,7 +926,7 @@ total)?
 # Escriba su código aquí
 ```
 
-## Ejercicio 2. Edad promedio de los parientes
+### Ejercicio 2. Edad promedio de los parientes
 
 La función `DemoKin::kin` provee información sobre la edad promedio de
 los parientes de Focal (en las columnas `kin_summary$mean_age` y
@@ -946,7 +948,7 @@ gt_2015$kin_summary %>%
 
     ## Warning: Removed 1 row(s) containing missing values (geom_path).
 
-![](README_files/figure-gfm/unnamed-chunk-35-1.png)<!-- -->
+![](README_files/figure-gfm/unnamed-chunk-36-1.png)<!-- -->
 
 **Instrucciones**
 
@@ -967,7 +969,7 @@ Segundo, la edad promedio de todas las hermanas sin importar su paridad:
 # Escriba su código aquí
 ```
 
-## Ejercicio 3. Madres
+### Ejercicio 3. Madres
 
 What is the probability that Focal (an average Swedish woman) has a
 living mother over Focal’s live?
@@ -993,7 +995,7 @@ hasta el cumpleaños 70 de Focal?
 # Escriba su código aquí
 ```
 
-## Ejercicio 4. Generación Sandwich
+### Ejercicio 4. Generación Sandwich
 
 La ‘Generación Sandwich’ se refiere a personas que se encuentran
 ‘ensanguchadas’ entre padres mayores e hijos jóvenes que requiren
@@ -1050,7 +1052,7 @@ edades 15 y 70. Asuma una población femenina estable.
 # Escriba su código aquí
 ```
 
-# Session info
+## Session info
 
 ``` r
 sessionInfo()
