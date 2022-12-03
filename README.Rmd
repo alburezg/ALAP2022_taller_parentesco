@@ -12,7 +12,7 @@ bibliography: kinship.bib
 
 # Segunda parte: modelos de parentesco en R 
 
-> Esta es la segunda parte del taller. Las diaposiivas de la primera parte están disponibles [aquí](diapositivas/).
+> Esta es la segunda parte del taller. Las diapositivas de la primera parte están disponibles [aquí](diapositivas/).
 
 <img src="DemoKin-Logo.png" align="right" width="200" />
 
