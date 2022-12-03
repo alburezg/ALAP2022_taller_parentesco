@@ -490,7 +490,7 @@ gt_2015$kin_summary %>%
   ggplot(aes(x = age_focal, y = count)) +
   geom_area(aes(fill = kin), colour = "black") +
   geom_line(data = counts, size = 2) +
-  labs(x = "Edad de Focal", y = "Número de parientes vivas") +
+  labs(x = "Edad de Focal", y = "Número de parientes con vida") +
   coord_cartesian(ylim = c(0, 8.5)) +
   theme_bw() +
   theme(legend.position = "bottom")
@@ -512,7 +512,7 @@ gt_2015$kin_full %>%
   ggplot() +
   geom_line(aes(age_kin, living)) +
   geom_vline(xintercept = 35, color=2) +
-  labs(y = "Número de parientes vivas") +
+  labs(y = "Número de parientes con vida") +
   theme_bw() +
   facet_wrap(~kin)
 ```
@@ -682,7 +682,7 @@ period_kin %>%
   rename_kin2(consolidate_column = "count") %>%
   ggplot(aes(x = age_focal, y = count)) +
   geom_area(aes(fill = kin), colour = "black") +
-  labs(x = "Edad de Focal", y = "Número de parientes vivas") +
+  labs(x = "Edad de Focal", y = "Número de parientes con vida") +
   facet_wrap(~Location) +
   theme_bw() +
   theme(legend.position = "bottom")
@@ -758,7 +758,7 @@ cum_death %>%
 
 Finalmente, graficamos los resultados sin diferenciar el numero de
 parientes y comparamos los resultados para cada pais en una misma
-grafica:
+gráfica:
 
 ``` r
 exact_line <-
@@ -827,7 +827,7 @@ data <- get_UNWPP_inputs(
 
 Explorar cambios a traves del tiempo en una perspectiva de periodo. En
 este ejemplo, vamos a usar un modelo que no asume estabilidad de tasas
-demograficas. Los modelos “dinámicos” (es decir, no estables) tardan más
+demográficas. Los modelos “dinámicos” (es decir, no estables) tardan más
 tiempo en correr.
 
 ``` r
@@ -927,13 +927,10 @@ period_kin %>%
 
 ![](README_files/figure-gfm/unnamed-chunk-33-1.png)<!-- -->
 
-**Para todos los ejercicios, asuma una población estable femenina con
-las tasas de 2010 en Argentina.**
-
 ## Ejercicio 3. Parientes vivos y muertos
 
 Use `DemoKin` (asumiendo una población estable femenina con las tasas
-argentina de 2010) para explorar el número de parientes vivos y muertos
+argentinas de 2010) para explorar el número de parientes vivos y muertos
 de Focal (un miembro promedio de la población).
 
 **Responda**: Cuántos hijos tiene Focal a sus 65 años?
@@ -975,10 +972,11 @@ gt_2015$kin_summary %>%
 
 **Instrucciones**
 
-Estime la edad promedio y la desviación estándar de las hermanas de
-Focal **a mano** (es decir, a partir de los datos en la data frame
-`kin_full`). Grafique por separado para (1) hermanas menores y mayores y
-(2) para todas las hermanas juntas.
+Use DemoKin, asumiendo una población estable femenina con las tasas
+argentinas de 2010. Estime la edad promedio y la desviación estándar de
+las hermanas de Focal **a mano** (es decir, a partir de los datos en la
+data frame `kin_full`). Grafique por separado para (1) hermanas menores
+y mayores y (2) para todas las hermanas juntas.
 
 Primero, la edad promedio de hermanas menores y mayores por separado:
 
@@ -999,7 +997,8 @@ tenga una madre con vida, a lo largo de la vida de Focal?
 
 **Instrucciones**
 
-Use DemoKin para obtener
+Use DemoKin, asumiendo una población estable femenina con las tasas
+argentinas de 2010, para obtener
 ![M\_1(a)](https://latex.codecogs.com/png.latex?M_1%28a%29 "M_1(a)"), la
 probabilidad de que Focal tenga una madre con vida a la edad
 ![a](https://latex.codecogs.com/png.latex?a "a") de Focal en una
@@ -1067,7 +1066,8 @@ estable e ignora la mortalidad infantil.
 
 Use DemoKin para estimar la probabilidad de que Focal esté ensanguchada,
 ![S(a)](https://latex.codecogs.com/png.latex?S%28a%29 "S(a)"), entre las
-edades 15 y 70. Asuma una población femenina estable.
+edades 15 y 70. Asuma una población femenina estable usando las tasas de
+Argentina.
 
 **Responda:** A qué edad es más probable que Focal esté ensanguchada?
 
