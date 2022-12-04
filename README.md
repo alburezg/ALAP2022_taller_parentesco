@@ -7,7 +7,7 @@ Pre-evento del X Congreso ALAP; Valparaíso, Chile - 6 Dic 2022
     Parentesco](#primera-parte-introducción-a-la-demografía-del-parentesco)
   - [Segunda parte: modelos de parentesco en
     R](#segunda-parte-modelos-de-parentesco-en-r)
-      - [1. Instalación de DemoKin](#1-instalación-de-demokin)
+      - [1. Instalación](#1-instalación)
       - [2. Cómo descargar datos de Naciones Unidas para este
         taller](#2-cómo-descargar-datos-de-naciones-unidas-para-este-taller)
       - [3. La función `kin()`](#3-la-función-kin)
@@ -32,14 +32,16 @@ Pre-evento del X Congreso ALAP; Valparaíso, Chile - 6 Dic 2022
 
 # Primera parte: Introducción a la Demografía del Parentesco
 
-Las diapositivas para la primera parte están disponibles
-[aquí](diapositivas/).
+Las diapositivas para la primera parte del minicurso están disponibles
+[aquí](diapositivas/alap_presentacion_parentesco.pdf).
 
 # Segunda parte: modelos de parentesco en R
 
 <img src="DemoKin-Logo.png" align="right" width="200" />
 
-## 1\. Instalación de DemoKin
+## 1\. Instalación
+
+### 1.1 Instalación de DemoKin
 
 Instale el paquete `DemoKin` [desde
 GitHub](https://github.com/IvanWilli/DemoKin) (puede tomar \~1 minuto).
@@ -50,7 +52,12 @@ GitHub](https://github.com/IvanWilli/DemoKin) (puede tomar \~1 minuto).
 devtools::install_github("IvanWilli/DemoKin", build_vignettes = TRUE)
 ```
 
-Cargue algunos paquetes:
+### 1\. 2. Otros paquetes
+
+Cargue algunos paquetes que usaremos para este minicurso:
+
+> Nota si alguen paquete no está instalados en su computadora, instálelo
+> usando el comando `install.packages("dplyr")`, etc.
 
 ``` r
 library(DemoKin)
@@ -61,19 +68,16 @@ library(ggplot2)
 library(fields)
 ```
 
-## 2\. Cómo descargar datos de Naciones Unidas para este taller
+### 1.3. Defina algunas funciones para los ejercicios
 
-Vamos a usar el API del [World Population
-Prospects 2022](https://population.un.org/wpp/) para descargar los datos
-que necesitamos para DemoKin.
-
-Para esto, primero definimos una función para cargar los datos
-directamente a la sesión de R:
+Una función para descargar datos de Naciones Unidas (UNWPP2022) usando
+el API:
 
 ``` r
 get_UNWPP_inputs <- function(countries, my_startyr, my_endyr, variant = "Median"){
 
   print("Getting API ready...")
+  print("Make sure you have a working internet connection!")
   # Get data from UN using API
   
   base_url <- 'https://population.un.org/dataportalapi/api/v1'
@@ -147,7 +151,8 @@ get_UNWPP_inputs <- function(countries, my_startyr, my_endyr, variant = "Median"
 }
 ```
 
-Otras funciones utiles que usaremos más adelante:
+Una función para mostrar nombre de parientes en español (con una ligera
+modificaión respecto a `DemoKin::rename_kin`:
 
 ``` r
 # A small hack on the existing rename_kin function to make sure it keeps all columns
@@ -155,11 +160,11 @@ rename_kin2 <- function (df, consolidate_column = "no") {
   stopifnot(`Argument 'consolidate_column' should be 'no' or a valid column name` = consolidate_column %in% 
     c("no", colnames(df)))
   if (consolidate_column == "no") {
-    relatives <- c("Cousins from older aunt", "Cousins from younger aunt", 
-      "Daughter", "Grand-daughter", "Great-grand-daughter", 
-      "Great-grandmother", "Grandmother", "Mother", "Nieces from older sister", 
-      "Nieces from younger sister", "Aunt older than mother", 
-      "Aunt younger than mother", "Older sister", "Younger sister")
+    relatives <- c("Primos por tia mayor", "Primos por tia menor", 
+      "Hija", "Nieta", "Bisnieta", 
+      "Bisabuela", "Abuela", "Madre", "Sobrinas por hermana mayor", 
+      "Sobrinas por hermana menor", "Tia mayor que madre", 
+      "Tia menor que madre", "Hermana mayor", "Hermana menor")
     names(relatives) <- c("coa", "cya", "d", "gd", "ggd", 
       "ggm", "gm", "m", "nos", "nys", "oa", "ya", "os", 
       "ys")
@@ -170,9 +175,9 @@ rename_kin2 <- function (df, consolidate_column = "no") {
     names(consolidate_vec) <- c("coa", "cya", "d", "gd", 
       "ggd", "ggm", "gm", "m", "nos", "nys", "oa", "ya", 
       "os", "ys")
-    relatives <- c("Cousins", "Daughter", "Grand-daughter", 
-      "Great-grand-daughter", "Great-grandmother", "Grandmother", 
-      "Mother", "Nieces", "Aunt", "Sister")
+    relatives <- c("Primas", "Hijas", "Nietas", 
+      "Bisnietas", "Bisabuelas", "Abuelas", 
+      "Madres", "Sobrinas", "Tias", "Hermanas")
     names(relatives) <- unique(consolidate_vec)
     df <- as.data.frame(df)
     df$count <- df[, consolidate_column]
@@ -189,9 +194,34 @@ rename_kin2 <- function (df, consolidate_column = "no") {
 }
 ```
 
-Ahora, usemos la función `get_UNWPP_inputs` para descargar los datos que
-necesitamos para nuestro modelos de parentesco. Para este ejemplo,
-usemos datos de Guatemala:
+Una función que nos permite aproximar parientes masculinos y femeninos
+usando “factores GKP”:
+
+``` r
+# A function to apply GKP factors to a female-only population to approximate kin counts for a two-sex population by multiplying daughters by 2, granddaughters by 4, etc. 
+approx_two_sex <- function(df){
+      factors <- c("coa" = 8, "cya" = 8, "d" = 2, "gd" = 4, "ggd" = 8, "ggm" = 8, "gm" = 4, "m" = 2, "nos" = 4, "nys" = 4, "oa" = 4, "ya" = 4, "os" = 2, "ys" = 2)
+
+df <- as.data.frame(df)
+factors_vec <- factors[df$kin]
+df$count_living <- df$count_living*factors_vec
+df$count_dead <- df$count_dead*factors_vec
+drop <- c("mean_age", "sd_age", "count_cum_dead", "mean_age_lost")
+print("Note: approx_two_sex only keeps columns with data on kin counts!")
+print(paste0("Dropping columns: ", paste(drop, collapse = ", ")))
+df[,!(names(df) %in% drop)]
+}
+```
+
+## 2\. Cómo descargar datos de Naciones Unidas para este taller
+
+Vamos a usar el API del [World Population
+Prospects 2022](https://population.un.org/wpp/) para descargar los datos
+que necesitamos para DemoKin.
+
+Para esto, usaremos la función `get_UNWPP_inputs` (definida arriba).
+**Nota: Necesita estar conectado a internet para usar esta función\!**
+Para este ejemplo, usemos datos de Guatemala:
 
 ``` r
 # pick countries
@@ -210,6 +240,7 @@ data <- get_UNWPP_inputs(
 ```
 
     ## [1] "Getting API ready..."
+    ## [1] "Make sure you have a working internet connection!"
     ## [1] "Getting mortality data for Guatemala"
     ## [1] "Getting fertility data for Guatemala"
 
@@ -260,7 +291,7 @@ image.plot(
   )
 ```
 
-![](README_files/figure-gfm/unnamed-chunk-8-1.png)<!-- -->
+![](README_files/figure-gfm/unnamed-chunk-9-1.png)<!-- -->
 
 #### 2.2. `gt_asfr` matriz; tasas específicas de fecundidad (argumento *f* en DemoKin)
 
@@ -290,7 +321,7 @@ image.plot(
   )
 ```
 
-![](README_files/figure-gfm/unnamed-chunk-10-1.png)<!-- -->
+![](README_files/figure-gfm/unnamed-chunk-11-1.png)<!-- -->
 
 ## 3\. La función `kin()`
 
@@ -400,7 +431,15 @@ Esta es una data frame que resume el contenido de `kin_full`. Para
 producirla, sumamos los valores a lo largo de todas las edades de los
 parientes. Esto produce una data frame con el número esperado de
 parientes por año/cohorte y edad de Focal (pero *no* por edad del
-pariente). Así derivamos `kin_summary`:
+pariente).
+
+Así derivamos `kin_summary`:
+
+<details>
+
+<summary>CLICK ME</summary>
+
+<p>
 
 ``` r
 kin_by_age_focal <- 
@@ -421,6 +460,10 @@ kin_by_age_focal %>%
 ```
 
     ## [1] TRUE
+
+</p>
+
+</details>
 
 ## 4\. Demostración: tamaño de redes familiares en Guatemala (poblaciones estables)
 
@@ -455,7 +498,7 @@ gt_2015$kin_summary %>%
   plot_diagram(rounding = 2)
 ```
 
-![](README_files/figure-gfm/unnamed-chunk-17-1.png)<!-- -->
+![](README_files/figure-gfm/unnamed-chunk-18-1.png)<!-- -->
 
 ### 4.2. Parentela viva
 
@@ -475,7 +518,7 @@ gt_2015$kin_summary %>%
   facet_wrap(~kin)
 ```
 
-![](README_files/figure-gfm/unnamed-chunk-18-1.png)<!-- -->
+![](README_files/figure-gfm/unnamed-chunk-19-1.png)<!-- -->
 
 Podemos mostrar todo en una gráfica para visualizar el tamaño absoluto
 de las redes familiares femeninas de Focal:
@@ -499,7 +542,7 @@ gt_2015$kin_summary %>%
   theme(legend.position = "bottom")
 ```
 
-![](README_files/figure-gfm/unnamed-chunk-19-1.png)<!-- -->
+![](README_files/figure-gfm/unnamed-chunk-20-1.png)<!-- -->
 
 ### 4.3. Distribución etaria de la parentela con vida
 
@@ -520,7 +563,7 @@ gt_2015$kin_full %>%
   facet_wrap(~kin)
 ```
 
-![](README_files/figure-gfm/unnamed-chunk-20-1.png)<!-- -->
+![](README_files/figure-gfm/unnamed-chunk-21-1.png)<!-- -->
 
 ### 4.4. Pérdidas familiares
 
@@ -557,7 +600,7 @@ gt_2015$kin_summary %>%
     ## `summarise()` has grouped output by 'age_focal'. You can override using the
     ## `.groups` argument.
 
-![](README_files/figure-gfm/unnamed-chunk-21-1.png)<!-- -->
+![](README_files/figure-gfm/unnamed-chunk-22-1.png)<!-- -->
 
 La suma de estos valores equivale al número acumulado de pérdidas
 familiares experimentado por Focal cuando ella tiene 0,1,2,… años.
@@ -586,7 +629,7 @@ gt_2015$kin_summary %>%
     ## `summarise()` has grouped output by 'age_focal'. You can override using the
     ## `.groups` argument.
 
-![](README_files/figure-gfm/unnamed-chunk-22-1.png)<!-- -->
+![](README_files/figure-gfm/unnamed-chunk-23-1.png)<!-- -->
 
 Por ejemplo, cuando Focal alcanza los 15, 50 y 65 años de edad, habrá
 perdido un promedio de 0.6, 2.8, 4.2 parientes.
@@ -634,6 +677,7 @@ data <- get_UNWPP_inputs(
 ```
 
     ## [1] "Getting API ready..."
+    ## [1] "Make sure you have a working internet connection!"
     ## [1] "Getting mortality data for Argentina, Haiti, Chile, Guatemala"
     ## [1] "Getting fertility data for Argentina, Haiti, Chile, Guatemala"
 
@@ -655,25 +699,6 @@ period_kin <-
     ## [1] "Chile 2022"
     ## [1] "Guatemala 2022"
     ## [1] "Haiti 2022"
-
-Primero, definimos una función que nos permite aproximar parientes
-masculinos y femeninos (usando “factores GKP”):
-
-``` r
-# A function to apply GKP factors to a female-only population to approximate kin counts for a two-sex population by multiplying daughters by 2, granddaughters by 4, etc. 
-approx_two_sex <- function(df){
-      factors <- c("coa" = 8, "cya" = 8, "d" = 2, "gd" = 4, "ggd" = 8, "ggm" = 8, "gm" = 4, "m" = 2, "nos" = 4, "nys" = 4, "oa" = 4, "ya" = 4, "os" = 2, "ys" = 2)
-
-df <- as.data.frame(df)
-factors_vec <- factors[df$kin]
-df$count_living <- df$count_living*factors_vec
-df$count_dead <- df$count_dead*factors_vec
-drop <- c("mean_age", "sd_age", "count_cum_dead", "mean_age_lost")
-print("Note: approx_two_sex only keeps columns with data on kin counts!")
-print(paste0("Dropping columns: ", paste(drop, collapse = ", ")))
-df[,!(names(df) %in% drop)]
-}
-```
 
 Ahora podemos visualizar algunos la estructura de parentesco en estos
 países. Comenzamos con la estructura familiar:
@@ -825,6 +850,7 @@ data <- get_UNWPP_inputs(
 ```
 
     ## [1] "Getting API ready..."
+    ## [1] "Make sure you have a working internet connection!"
     ## [1] "Getting mortality data for Argentina, Haiti, Chile, Guatemala"
     ## [1] "Getting fertility data for Argentina, Haiti, Chile, Guatemala"
 
