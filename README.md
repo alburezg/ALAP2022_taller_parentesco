@@ -30,6 +30,10 @@ Pre-evento del X Congreso ALAP; Valparaíso, Chile - 6 Dic 2022
       - [Session info](#session-info)
       - [References](#references)
 
+<!-- Collapse code chunks: -->
+
+<!-- https://gist.github.com/joyrexus/16041f2426450e73f5df9391f7f7ae5f#file-readme-md -->
+
 # Primera parte: Introducción a la Demografía del Parentesco
 
 Las diapositivas para la primera parte del minicurso están disponibles
@@ -72,6 +76,12 @@ library(fields)
 
 Una función para descargar datos de Naciones Unidas (UNWPP2022) usando
 el API:
+
+<details>
+
+<summary><b>MOSTRAR CODIGO</b></summary>
+
+<p>
 
 ``` r
 get_UNWPP_inputs <- function(countries, my_startyr, my_endyr, variant = "Median"){
@@ -151,8 +161,18 @@ get_UNWPP_inputs <- function(countries, my_startyr, my_endyr, variant = "Median"
 }
 ```
 
+</p>
+
+</details>
+
 Una función para mostrar nombre de parientes en español (con una ligera
 modificaión respecto a `DemoKin::rename_kin`:
+
+<details>
+
+<summary><b>MOSTRAR CODIGO</b></summary>
+
+<p>
 
 ``` r
 # A small hack on the existing rename_kin function to make sure it keeps all columns
@@ -194,8 +214,18 @@ rename_kin2 <- function (df, consolidate_column = "no") {
 }
 ```
 
+</p>
+
+</details>
+
 Una función que nos permite aproximar parientes masculinos y femeninos
 usando “factores GKP”:
+
+<details>
+
+<summary><b>MOSTRAR CODIGO</b></summary>
+
+<p>
 
 ``` r
 # A function to apply GKP factors to a female-only population to approximate kin counts for a two-sex population by multiplying daughters by 2, granddaughters by 4, etc. 
@@ -212,6 +242,10 @@ print(paste0("Dropping columns: ", paste(drop, collapse = ", ")))
 df[,!(names(df) %in% drop)]
 }
 ```
+
+</p>
+
+</details>
 
 ## 2\. Cómo descargar datos de Naciones Unidas para este taller
 
@@ -437,7 +471,7 @@ Así derivamos `kin_summary`:
 
 <details>
 
-<summary>CLICK ME</summary>
+<summary>MOSTRAR CODIGO</summary>
 
 <p>
 
